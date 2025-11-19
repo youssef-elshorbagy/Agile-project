@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard-container" id="studentDashboard">
+        <div class="dashboard-header">
+            <div>
+                <h1>Student Dashboard</h1>
+                <p>Welcome, <span id="studentName">Student</span></p>
+            </div>
+            <button onclick="logout()" class="logout-button">Logout</button>
+        </div>
+
+        <div class="navbar">
+            <a class="nav-link active" onclick="switchView('dashboard', this)">Dashboard</a>
+            <a class="nav-link" onclick="switchView('register', this)">Register Courses</a>
+            <a class="nav-link" onclick="switchView('profile', this)">My Profile</a>
+        </div>
+
+        <div class="dashboard-content">
+            
+            <div id="view-dashboard">
+                <div class="courses-section">
+                    <div class="section-header-row">
+                        <h2>My Enrolled Courses</h2>
+                        <div class="carousel-nav">
+                            <button class="nav-btn" onclick="scrollGrid('left', 'coursesGrid')">‹</button>
+                            <button class="nav-btn" onclick="scrollGrid('right', 'coursesGrid')">›</button>
+                        </div>
+                    </div>
+
+                    <div class="courses-grid" id="coursesGrid">
+                        <p style="text-align:center; width:100%; color:#666;">Loading courses...</p>
+                    </div>
+                </div>
+
+                <div class="assignments-section">
+                    <h2>Recent Assignments</h2>
+                    <div class="assignments-list">
+                        <p style="color:#666;">No pending assignments.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-register" style="display: none;">
+                <div class="users-section">
+                    <h2>Available Courses</h2>
+                    <div class="users-table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Course Code</th>
+                                    <th>Course Name</th>
+                                    <th>Instructor</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="4" style="text-align:center;">Loading available courses...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-profile" style="display: none;">
+                <div class="gpa-card">
+                    <div class="gpa-value" id="displayGPA">0.00</div>
+                    <div class="gpa-label">Cumulative GPA</div>
+                    
+                    <div class="gpa-progress-container">
+                        <div class="gpa-progress-fill" id="gpaBar"></div>
+                    </div>
+
+                    <div class="level-badge-circle" id="half-load">2</div>
+                </div>
+                <div class="info-card">
+                    <h3>My Personal Information</h3>
+                    <div class="info-item">
+                        <strong>Full Name:</strong> <span id="studentFullName">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Student ID:</strong> <span id="studentId">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Email Address:</strong> <span id="studentEmail">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Level:</strong> <span id="studentLevel">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Role:</strong> <span class="role-badge role-student">Student</span>
+                    </div>
+                    <br>
+                    <button class="submit-button" style="width: auto;">Edit Profile</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/student.js"></script>
+</body>
+</html>

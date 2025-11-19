@@ -1,0 +1,164 @@
+// 1. Security Check
+const session = requireAuth('student');
+
+// 2. Load Data on Startup
+document.addEventListener('DOMContentLoaded', () => {
+    if(session) {
+        document.getElementById('studentName').textContent = session.user.fullName;
+        document.getElementById('studentFullName').textContent = session.user.fullName;
+        document.getElementById('studentEmail').textContent = session.user.email;
+        
+        // Safety Check: Use 'N/A' if ID is missing
+        document.getElementById('studentId').textContent = session.user.universityId || 'N/A';
+
+        const level = session.user.level || 1;
+        const gpa = session.user.gpa || 0.00;
+
+        const levelTextEl = document.getElementById('studentLevel'); 
+        if(levelTextEl) levelTextEl.textContent = level;
+
+        // 5. Update GPA Text
+        const gpaTextEl = document.getElementById('displayGPA');
+        if(gpaTextEl) gpaTextEl.textContent = gpa.toFixed(2);
+
+        // 6. Animate Progress Bar
+        const percentage = (gpa / 4.0) * 100;
+        setTimeout(() => {
+            const bar = document.getElementById('gpaBar');
+            if(bar) bar.style.width = `${percentage}%`;
+        }, 300);
+
+        // NEW: Load Dashboard Courses
+        loadMyCourses();
+    }
+});
+
+// 3. Navigation Logic
+function switchView(viewName, element) {
+    // A. Hide all views
+    document.getElementById('view-dashboard').style.display = 'none';
+    document.getElementById('view-register').style.display = 'none';
+    document.getElementById('view-profile').style.display = 'none';
+
+    // B. Show the selected view
+    document.getElementById(`view-${viewName}`).style.display = 'block';
+
+    // C. Update Active Class on Buttons
+    // 1. Remove 'active' from all links
+    const links = document.querySelectorAll('.nav-link');
+    links.forEach(link => link.classList.remove('active'));
+
+    // 2. Add 'active' to the clicked link
+    if (element) {
+        element.classList.add('active');
+    }
+
+    if (viewName === 'register') {
+        loadAvailableCourses();
+    }
+}
+
+
+
+
+async function loadMyCourses() {
+    const grid = document.getElementById('coursesGrid');
+    if(!grid) return;
+
+    try {
+        // Call the new endpoint
+        const response = await fetch(`${API_URL}/courses/my-courses`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const result = await response.json();
+
+        if(response.ok) {
+            grid.innerHTML = ''; // Clear static HTML
+
+            if(result.data.courses.length === 0) {
+                grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#666;">You are not enrolled in any courses yet.</p>';
+                return;
+            }
+
+            result.data.courses.forEach(c => {
+                grid.innerHTML += `
+                    <div class="course-card" onclick="window.location.href='course-details.html?id=${c._id}'" style="cursor: pointer;">
+                        <h3>${c.name}</h3>
+                        <p>${c.code} - ${c.creditHours} Credit Hours</p>
+                        <div class="course-info">
+                            <span>Instructor: ${c.instructor ? c.instructor.fullName : 'TBA'}</span>
+                            <span>Status: <strong style="color: #aaffaa">Enrolled</strong></span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+    } catch (err) { console.error(err); }
+}
+
+
+
+
+
+// Add this function to your existing student.js
+
+async function loadAvailableCourses() {
+    const tbody = document.querySelector('#view-register tbody');
+    if(!tbody) return; // Safety check
+
+    try {
+        const response = await fetch(`${API_URL}/courses`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const result = await response.json();
+
+        if(response.ok) {
+            tbody.innerHTML = '';
+            const myId = session.user._id; // We need the current student's ID
+
+            result.data.courses.forEach(c => {
+                // Determine Button State
+                let actionBtn = '';
+                
+                // Check if Enrolled (User object or ID might be in the array)
+                const isEnrolled = c.studentsEnrolled.some(s => s._id === myId || s === myId);
+                const isPending = c.studentsPending.some(s => s._id === myId || s === myId);
+
+                if (isEnrolled) {
+                    actionBtn = `<span class="status-badge status-completed">Enrolled</span>`;
+                } else if (isPending) {
+                    actionBtn = `<span class="status-badge status-pending">Pending</span>`;
+                } else {
+                    actionBtn = `<button onclick="requestCourse('${c._id}')" class="register-btn">Request</button>`;
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${c.code}</td>
+                        <td>${c.name}</td>
+                        <td>${c.instructor ? c.instructor.fullName : 'TBA'}</td>
+                        <td>${actionBtn}</td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (err) { console.error(err); }
+}
+
+// The function called when clicking the button
+async function requestCourse(courseId) {
+    try {
+        const response = await fetch(`${API_URL}/courses/${courseId}/request`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const result = await response.json();
+        
+        if(response.ok) {
+            alert("Request Sent! Waiting for Admin approval.");
+            loadAvailableCourses(); // Refresh table to show 'Pending'
+        } else {
+            alert(result.message);
+        }
+    } catch (err) { console.error(err); }
+}
