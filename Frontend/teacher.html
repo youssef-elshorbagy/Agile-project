@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard-container" id="teacherDashboard">
+        <div class="dashboard-header">
+            <div>
+                <h1>Teacher Dashboard</h1>
+                <p>Welcome, <span id="teacherName">Teacher</span></p>
+            </div>
+            <button onclick="logout()" class="logout-button">Logout</button>
+        </div>
+
+        <div class="navbar">
+            <a class="nav-link active" onclick="switchView('dashboard', this)">Dashboard</a>
+            <a class="nav-link" onclick="switchView('profile', this)">My Profile</a>
+        </div>
+
+        <div class="dashboard-content">
+            
+            <div id="view-dashboard">
+                <div class="courses-section">
+                    <div class="section-header-row">
+                        <h2>My Classes</h2>
+                        <div class="carousel-nav">
+                            <button class="nav-btn" onclick="scrollGrid('left', 'teacherCoursesGrid')">‹</button>
+                            <button class="nav-btn" onclick="scrollGrid('right', 'teacherCoursesGrid')">›</button>
+                        </div>
+                    </div>
+
+                    <div class="courses-grid" id="teacherCoursesGrid">
+                        <p style="text-align:center; width:100%; color:#666;">Loading classes...</p>
+                    </div>
+                </div>
+                
+                <div class="assignments-section">
+                    <h2>Pending Grading</h2>
+                    <p>You have 0 assignments to grade.</p>
+                </div>
+            </div>
+
+            <div id="view-profile" style="display: none;">
+                <div class="info-card">
+                    <h3>My Profile</h3>
+                    <div class="info-item">
+                        <strong>Full Name:</strong> <span id="teacherFullName">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Teacher ID:</strong> <span id="teacherId">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Email:</strong> <span id="teacherEmail">-</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Role:</strong> <span class="role-badge role-teacher">Teacher</span>
+                    </div>
+                    <br>
+                    <button class="submit-button" style="width: auto;">Edit Profile</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/teacher.js"></script>
+</body>
+</html>
