@@ -1,0 +1,720 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+/* Login Page Styles */
+.login-container {
+     background-image: url('images/ASU.jpg');
+    
+    /* 2. Make it cover the whole screen */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    
+    /* 3. (Optional) Add a dark overlay so the Login Card pops out */
+    /* This combines a semi-transparent black layer ON TOP of your image */
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('images/ASU.jpg');
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.login-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    padding: 40px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h1 {
+    color: #333;
+    font-size: 26px;
+    margin-bottom: 8px;
+}
+
+.login-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.form-group input,
+.form-group select {
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    font-size: 15px;
+    outline: none;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: #667eea;
+}
+
+.error-message {
+    background-color: #fee;
+    color: #c33;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    border: 1px solid #fcc;
+}
+
+.success-message {
+    background-color: #efe;
+    color: #3c3;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    border: 1px solid #cfc;
+}
+
+.login-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: transform 0.2s;
+}
+
+.login-button:hover {
+    transform: translateY(-2px);
+}
+
+.admin-note {
+    font-size: 12px;
+    color: #888;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 6px;
+}
+
+.admin-note strong {
+    color: #667eea;
+}
+
+/* Dashboard Styles */
+.dashboard-container {
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.dashboard-header {
+    background: white;
+    border-radius: 10px;
+    padding: 20px 30px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-header h1 {
+    color: #333;
+    font-size: 28px;
+    margin-bottom: 4px;
+}
+
+.dashboard-header p {
+    color: #666;
+    font-size: 14px;
+}
+
+.logout-button {
+    background: #ff4757;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.logout-button:hover {
+    background: #ff3838;
+}
+
+.dashboard-content {
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.dashboard-actions {
+    margin-bottom: 20px;
+}
+
+.add-user-button {
+    background: white;
+    color: #667eea;
+    border: 2px solid #667eea;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.add-user-button:hover {
+    background: #667eea;
+    color: white;
+}
+
+.add-user-form-container {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.add-user-form-container h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+.add-user-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.submit-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: transform 0.2s;
+}
+
+.submit-button:hover {
+    transform: translateY(-2px);
+}
+
+.users-section {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.users-section h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+.users-table-container {
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table thead {
+    background-color: #f8f9fa;
+}
+
+.users-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #ddd;
+}
+
+.users-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    color: #666;
+}
+
+.users-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.role-admin {
+    background-color: #ff4757;
+    color: white;
+}
+
+.role-teacher {
+    background-color: #5352ed;
+    color: white;
+}
+
+.role-student {
+    background-color: #2ed573;
+    color: white;
+}
+
+/* Student Dashboard Styles */
+.info-card {
+    background: white;
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h3 {
+    color: #333;
+    margin-bottom: 15px;
+    font-size: 20px;
+}
+
+.info-item {
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    color: #666;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item strong {
+    color: #333;
+    margin-right: 10px;
+}
+
+/* Courses Section */
+.courses-section {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.courses-section h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+/* --- CAROUSEL / SLIDER STYLES --- */
+
+/* The container that holds the cards */
+.courses-grid {
+    display: flex;          /* Makes items sit in a row */
+    gap: 20px;              /* Space between cards */
+    overflow-x: auto;       /* Allows horizontal scrolling */
+    scroll-behavior: smooth;/* Smooth animation when clicking buttons */
+    padding-bottom: 10px;   /* Space for scrollbar if visible */
+    
+    /* Hide Scrollbar (Chrome/Safari/Webkit) */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+.courses-grid::-webkit-scrollbar {
+    display: none; 
+}
+
+/* Fixed width for cards so they don't shrink */
+.course-card {
+    min-width: 300px; 
+    flex: 0 0 auto; /* Don't shrink */
+}
+
+/* Navigation Buttons (Arrows) */
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.carousel-nav {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-btn {
+    width: 32px;
+    height: 32px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #555;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: #f0f0f0;
+    color: #333;
+    border-color: #ccc;
+}
+
+.course-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+    transition: transform 0.2s;
+}
+
+.course-card:hover {
+    transform: translateY(-5px);
+}
+
+.course-card h3 {
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.course-card p {
+    margin-bottom: 15px;
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+.course-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+/* Assignments Section */
+.assignments-section {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.assignments-section h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+.assignments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.assignment-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border-left: 4px solid #667eea;
+}
+
+.assignment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.assignment-header h4 {
+    color: #333;
+    font-size: 16px;
+}
+
+.assignment-item p {
+    color: #666;
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.due-date {
+    color: #888;
+    font-size: 13px;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background-color: #ffa502;
+    color: white;
+}
+
+.status-completed {
+    background-color: #2ed573;
+    color: white;
+}
+
+/* Grades Section */
+.grades-section {
+    background: white;
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.grades-section h2 {
+    color: #333;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+.grades-table-container {
+    overflow-x: auto;
+}
+
+.grades-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.grades-table thead {
+    background-color: #f8f9fa;
+}
+
+.grades-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #ddd;
+}
+
+.grades-table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    color: #666;
+}
+
+.grades-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+
+    .users-table-container {
+        overflow-x: scroll;
+    }
+
+    .courses-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .assignment-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+
+/* --- Navigation Bar Styles --- */
+.navbar {
+    background: white;
+    padding: 0 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    height: 60px;
+}
+
+.nav-link {
+    color: #666;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 18px 20px;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+
+.nav-link:hover {
+    color: #667eea;
+    background-color: #f8f9fa;
+}
+
+.nav-link.active {
+    color: #667eea;
+    border-bottom: 3px solid #667eea;
+}
+
+/* Register Course Table Styles */
+.register-btn {
+    background-color: #667eea;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.register-btn:hover {
+    background-color: #5a6fd6;
+}
+
+/* --- GPA CARD STYLES (High Visibility) --- */
+.gpa-card {
+    /* 1. BACKGROUND: White pops against the purple page */
+    background: #ffffff;
+    color: #2d3436; /* Dark Grey text for readability */
+
+    /* 2. CENTERING */
+    margin: 0 auto 30px auto; /* Center horizontally */
+    max-width: 550px;         /* Slightly wider */
+
+    padding: 35px;
+    border-radius: 20px;
+    position: relative;
+    
+    /* 3. STYLING: Strong shadow + Theme Border */
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1); /* Deep shadow to lift it up */
+}
+
+.gpa-value {
+    font-size: 64px; /* Bigger & Bolder */
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 5px;
+    
+    /* Make the number THEME PURPLE */
+    color: #6c5ce7; 
+}
+
+.gpa-label {
+    font-size: 14px;
+    text-transform: uppercase;
+    color: #b2bec3; /* Light grey label */
+    margin-bottom: 30px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+/* Progress Bar Container - Grey Track */
+.gpa-progress-container {
+    background-color: #dfe6e9; 
+    height: 10px;
+    border-radius: 5px;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Progress Bar Fill - Purple Gradient */
+.gpa-progress-fill {
+    background: linear-gradient(90deg, #a29bfe 0%, #6c5ce7 100%);
+    height: 100%;
+    width: 0%; 
+    border-radius: 5px;
+    transition: width 1s ease-in-out;
+}
+
+/* Floating Circle Badge */
+.level-badge-circle {
+    position: absolute;
+    top: 35px;
+    right: 35px;
+    width: 70px;
+    height: 70px;
+    
+    /* Purple Circle with White Text */
+    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+    color: white; 
+    
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    
+    /* Glow effect */
+    box-shadow: 0 10px 20px rgba(108, 92, 231, 0.3);
+}
+
