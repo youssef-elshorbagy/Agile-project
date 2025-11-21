@@ -1,4 +1,3 @@
-// 1. Security Check
 const session = requireAuth('student');
 
 // 2. Load Data on Startup
@@ -8,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('studentFullName').textContent = session.user.fullName;
         document.getElementById('studentEmail').textContent = session.user.email;
         
-        // Safety Check: Use 'N/A' if ID is missing
         document.getElementById('studentId').textContent = session.user.universityId || 'N/A';
 
         const level = session.user.level || 1;
@@ -17,38 +15,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const levelTextEl = document.getElementById('studentLevel'); 
         if(levelTextEl) levelTextEl.textContent = level;
 
-        // 5. Update GPA Text
         const gpaTextEl = document.getElementById('displayGPA');
         if(gpaTextEl) gpaTextEl.textContent = gpa.toFixed(2);
 
-        // 6. Animate Progress Bar
         const percentage = (gpa / 4.0) * 100;
         setTimeout(() => {
             const bar = document.getElementById('gpaBar');
             if(bar) bar.style.width = `${percentage}%`;
         }, 300);
 
-        // NEW: Load Dashboard Courses
         loadMyCourses();
     }
 });
 
-// 3. Navigation Logic
+
+
+// Navigation 
 function switchView(viewName, element) {
-    // A. Hide all views
     document.getElementById('view-dashboard').style.display = 'none';
     document.getElementById('view-register').style.display = 'none';
     document.getElementById('view-profile').style.display = 'none';
 
-    // B. Show the selected view
     document.getElementById(`view-${viewName}`).style.display = 'block';
 
-    // C. Update Active Class on Buttons
-    // 1. Remove 'active' from all links
     const links = document.querySelectorAll('.nav-link');
     links.forEach(link => link.classList.remove('active'));
 
-    // 2. Add 'active' to the clicked link
     if (element) {
         element.classList.add('active');
     }
@@ -66,14 +58,13 @@ async function loadMyCourses() {
     if(!grid) return;
 
     try {
-        // Call the new endpoint
         const response = await fetch(`${API_URL}/courses/my-courses`, {
             headers: { 'Authorization': `Bearer ${session.token}` }
         });
         const result = await response.json();
 
         if(response.ok) {
-            grid.innerHTML = ''; // Clear static HTML
+            grid.innerHTML = ''; 
 
             if(result.data.courses.length === 0) {
                 grid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; color:#666;">You are not enrolled in any courses yet.</p>';
@@ -100,11 +91,10 @@ async function loadMyCourses() {
 
 
 
-// Add this function to your existing student.js
 
 async function loadAvailableCourses() {
     const tbody = document.querySelector('#view-register tbody');
-    if(!tbody) return; // Safety check
+    if(!tbody) return; 
 
     try {
         const response = await fetch(`${API_URL}/courses`, {
@@ -114,13 +104,11 @@ async function loadAvailableCourses() {
 
         if(response.ok) {
             tbody.innerHTML = '';
-            const myId = session.user._id; // We need the current student's ID
+            const myId = session.user._id; 
 
             result.data.courses.forEach(c => {
-                // Determine Button State
                 let actionBtn = '';
                 
-                // Check if Enrolled (User object or ID might be in the array)
                 const isEnrolled = c.studentsEnrolled.some(s => s._id === myId || s === myId);
                 const isPending = c.studentsPending.some(s => s._id === myId || s === myId);
 
@@ -145,7 +133,6 @@ async function loadAvailableCourses() {
     } catch (err) { console.error(err); }
 }
 
-// The function called when clicking the button
 async function requestCourse(courseId) {
     try {
         const response = await fetch(`${API_URL}/courses/${courseId}/request`, {
@@ -156,7 +143,7 @@ async function requestCourse(courseId) {
         
         if(response.ok) {
             alert("Request Sent! Waiting for Admin approval.");
-            loadAvailableCourses(); // Refresh table to show 'Pending'
+            loadAvailableCourses(); 
         } else {
             alert(result.message);
         }

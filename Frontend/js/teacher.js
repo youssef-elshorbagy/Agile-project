@@ -1,41 +1,31 @@
-// 1. Security Check
 const session = requireAuth('teacher');
 
-// 2. Load Data on Startup
+// Load Data on Startup
 document.addEventListener('DOMContentLoaded', () => {
     if(session) {
-        // Header Name
         document.getElementById('teacherName').textContent = session.user.fullName;
         
-        // Profile Data
         document.getElementById('teacherFullName').textContent = session.user.fullName;
         document.getElementById('teacherEmail').textContent = session.user.email;
         document.getElementById('teacherId').textContent = session.user.universityId;
 
-        // Load Courses immediately
         loadTeacherCourses();
     }
 });
 
-// 3. Navigation Logic
 function switchView(viewName, element) {
-    // Hide all views
     document.getElementById('view-dashboard').style.display = 'none';
     document.getElementById('view-profile').style.display = 'none';
 
-    // Show selected
     document.getElementById(`view-${viewName}`).style.display = 'block';
 
-    // Update Active Button
     const links = document.querySelectorAll('.nav-link');
     links.forEach(link => link.classList.remove('active'));
     
     if(element) element.classList.add('active');
 }
 
-// 4. Load Courses Logic
 async function loadTeacherCourses() {
-    // Note: I am selecting the div inside view-dashboard
     const grid = document.getElementById('teacherCoursesGrid');
 
     try {

@@ -1,11 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // If already logged in, redirect based on role
     const token = localStorage.getItem('token');
     if (token) {
         const user = JSON.parse(localStorage.getItem('user'));
         redirectUser(user);
     }
 });
+
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -24,14 +24,12 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const result = await response.json();
 
         if (response.ok) {
-            // Save Data
             localStorage.setItem('token', result.token);
             localStorage.setItem('user', JSON.stringify(result.data.user));
             
             errorDiv.style.display = 'none';
             document.getElementById('loginForm').reset();
 
-            // Redirect Function
             redirectUser(result.data.user);
         } else {
             throw new Error(result.message || 'Login failed');
@@ -42,12 +40,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
 });
 
-// Helper function to handle the 3 different destinations
+
+
+
+// Redirect users to their correct dashboard
 function redirectUser(user) {
     if (user.role === 'admin') {
         window.location.href = 'admin.html';
     } else if (user.role === 'teacher') {
-        window.location.href = 'teacher.html'; // NEW DESTINATION
+        window.location.href = 'teacher.html';
     } else {
         window.location.href = 'student.html';
     }

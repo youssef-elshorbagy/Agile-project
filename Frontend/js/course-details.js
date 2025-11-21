@@ -1,4 +1,3 @@
-// 1. Get Course ID from URL
 const urlParams = new URLSearchParams(window.location.search);
 const courseId = urlParams.get('id');
 
@@ -7,10 +6,8 @@ if (!courseId) {
     window.close();
 }
 
-// 2. Auth Check
-const session = requireAuth(); // Allow any logged in user
+const session = requireAuth(); 
 
-// 3. Load Data
 document.addEventListener('DOMContentLoaded', () => {
     loadCourseDetails();
     
@@ -19,16 +16,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (session.user.role === 'teacher') {
         backLink.href = "teacher.html";
-        profileLink.href = "teacher.html"; // Ideally this would open the profile tab directly
+        profileLink.href = "teacher.html"; 
         
-        // Show forms
         document.getElementById('announcementForm').style.display = 'block';
         document.getElementById('lectureForm').style.display = 'block';
     } else {
         backLink.href = "student.html";
         profileLink.href = "student.html";
     }
-    // Show Teacher Controls if the user is a teacher
     if (session.user.role === 'teacher') {
         document.getElementById('announcementForm').style.display = 'block';
         document.getElementById('lectureForm').style.display = 'block';
@@ -45,11 +40,9 @@ async function loadCourseDetails() {
         if (response.ok) {
             const c = result.data.course;
             
-            // Header
             document.getElementById('courseName').textContent = c.name;
             document.getElementById('courseCode').textContent = `${c.code} - Instructor: ${c.instructor.fullName}`;
 
-            // Render Announcements
             const annList = document.getElementById('announcementsList');
             annList.innerHTML = '';
             if(c.announcements.length === 0) {
@@ -68,7 +61,6 @@ async function loadCourseDetails() {
                 `;
             });
 
-            // Render Lectures
             const lecList = document.getElementById('lecturesList');
             lecList.innerHTML = '';
             if(c.lectures.length === 0) {
@@ -91,7 +83,6 @@ async function loadCourseDetails() {
     } catch (err) { console.error(err); }
 }
 
-// --- TEACHER FUNCTIONS ---
 
 async function postAnnouncement() {
     const text = document.getElementById('newAnnouncementText').value;
@@ -109,7 +100,7 @@ async function postAnnouncement() {
         
         if(response.ok) {
             document.getElementById('newAnnouncementText').value = '';
-            loadCourseDetails(); // Reload to show new item
+            loadCourseDetails(); 
         }
     } catch(err) { console.error(err); }
 }
@@ -122,14 +113,11 @@ async function postLecture() {
         return alert("Please enter a title and select a PDF file!");
     }
 
-    // Prepare the data package
     const formData = new FormData();
     formData.append('title', title);
-    formData.append('file', fileInput.files[0]); // The actual PDF file
+    formData.append('file', fileInput.files[0]); 
 
     try {
-        // Note: Do NOT set 'Content-Type': 'application/json'
-        // The browser sets the correct content type for files automatically
         const response = await fetch(`${API_URL}/courses/${courseId}/lecture`, {
             method: 'POST',
             headers: { 
