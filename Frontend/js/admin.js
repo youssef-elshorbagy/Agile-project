@@ -11,17 +11,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// --- NAVIGATION LOGIC ---
+// Navigation
 function switchView(viewName, element) {
-    // Hide all views
     document.getElementById('view-users').style.display = 'none';
     document.getElementById('view-courses').style.display = 'none';
     document.getElementById('view-enrollments').style.display = 'none';
 
-    // Show selected
     document.getElementById(`view-${viewName}`).style.display = 'block';
 
-    // Update Active Button
     const links = document.querySelectorAll('.nav-link');
     links.forEach(link => link.classList.remove('active'));
     element.classList.add('active');
@@ -31,14 +28,14 @@ function switchView(viewName, element) {
     }
 }
 
-// --- TAB 1: USER MANAGEMENT ---
+-
 
 async function loadUsers() {
     const tbody = document.getElementById('usersTableBody');
     const countSpan = document.getElementById('userCount');
 
     try {
-        const response = await fetch(`${API_URL}/users`, {
+        const response = await fetch(`${API_URL}/users?limit=100`, {
             headers: { 'Authorization': `Bearer ${session.token}` }
         });
         const result = await response.json();
@@ -65,7 +62,6 @@ async function loadUsers() {
 async function addUser(e) {
     e.preventDefault();
     
-    // Get the new value
     const universityId = document.getElementById('universityId').value;
     const email = document.getElementById('userEmail').value;
     const password = document.getElementById('userPassword').value;
@@ -82,7 +78,6 @@ async function addUser(e) {
                 'Content-Type': 'application/json', 
                 'Authorization': `Bearer ${session.token}` 
             },
-            // Send universityId in the body
             body: JSON.stringify({ universityId, email, password, role, fullName })
         });
 
@@ -96,7 +91,6 @@ async function addUser(e) {
             loadUsers();
             loadInstructors();
         } else {
-            // This will show backend errors (like "Password must start with Capital")
             throw new Error(result.message);
         }
     } catch (err) {
@@ -118,13 +112,12 @@ function toggleAddUserForm() {
     }
 }
 
-// --- TAB 2: COURSE MANAGEMENT ---
 
-// Helper: Populate the Teacher Dropdown
+
+
 async function loadInstructors() {
     const select = document.getElementById('courseInstructor');
     try {
-        // CHANGED: Added ?limit=100 to get everyone
         const response = await fetch(`${API_URL}/users?limit=100`, {
             headers: { 'Authorization': `Bearer ${session.token}` }
         });
@@ -185,8 +178,8 @@ async function addCourse(e) {
 }
 
 async function loadCourses() {
-    const tbody = document.getElementById('coursesTableBody');
-    const requestsBody = document.getElementById('requestsTableBody'); // For Tab 3
+    const tbody = document.getElementById('coursesTableBody'); 
+    const requestsBody = document.getElementById('requestsTableBody'); 
 
     try {
         const response = await fetch(`${API_URL}/courses`, {
@@ -199,7 +192,6 @@ async function loadCourses() {
             requestsBody.innerHTML = '';
 
             result.data.courses.forEach(c => {
-                // Populate Course List (Tab 2)
                 tbody.innerHTML += `
                     <tr>
                         <td>${c.code}</td>
@@ -208,47 +200,6 @@ async function loadCourses() {
                     </tr>
                 `;
 
-                // Populate Requests/Enrollments (Tab 3)
-                requestsBody.innerHTML += `
-                    <tr>
-                        <td>${c.code} - ${c.name}</td>
-                        <td>${c.instructor ? c.instructor.fullName : 'Unknown'}</td>
-                        <td>${c.studentsEnrolled.length} Students</td>
-                    </tr>
-                `;
-            });
-        }
-    } catch (err) { console.error(err); }
-}
-
-// ... existing code ...
-
-async function loadCourses() {
-    const tbody = document.getElementById('coursesTableBody');
-    const requestsBody = document.getElementById('requestsTableBody');
-
-    try {
-        const response = await fetch(`${API_URL}/courses`, {
-            headers: { 'Authorization': `Bearer ${session.token}` }
-        });
-        const result = await response.json();
-
-        if(response.ok) {
-            tbody.innerHTML = '';
-            requestsBody.innerHTML = '';
-
-            result.data.courses.forEach(c => {
-                // TAB 2: Course List
-                tbody.innerHTML += `
-                    <tr>
-                        <td>${c.code}</td>
-                        <td>${c.name}</td>
-                        <td>${c.instructor ? c.instructor.fullName : 'Unknown'}</td>
-                    </tr>
-                `;
-
-                // TAB 3: PENDING REQUESTS LOOP
-                // We check if this course has any pending students
                 if (c.studentsPending && c.studentsPending.length > 0) {
                     c.studentsPending.forEach(student => {
                         requestsBody.innerHTML += `
@@ -272,13 +223,14 @@ async function loadCourses() {
             });
             
             if(requestsBody.innerHTML === '') {
-                requestsBody.innerHTML = '<tr><td colspan="3" style="text-align:center">No pending requests</td></tr>';
+                requestsBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">No pending requests</td></tr>';
             }
         }
     } catch (err) { console.error(err); }
 }
 
-// NEW FUNCTION: Handle the click
+
+
 async function handleRequest(courseId, studentId, action) {
     try {
         const response = await fetch(`${API_URL}/courses/manage-request`, {
@@ -293,7 +245,6 @@ async function handleRequest(courseId, studentId, action) {
         const result = await response.json();
         
         if(response.ok) {
-            // Refresh list to remove the processed request
             loadCourses();
         } else {
             alert(result.message);
