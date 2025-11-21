@@ -6,20 +6,15 @@ const userRoutes = require("./routes/auth");
 const courseRoutes = require("./routes/courses");
 const cors = require("cors"); 
 
-// --- NEW IMPORTS FOR ADMIN SEEDING ---
 const User = require("./models/user");
 const bcrypt = require("bcryptjs");
-// -------------------------------------
 
 const app = express();
 app.use(cors());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// app.use("/uploads", express.static(path.join(__dirname, 'uploads'))); 
 
-// --- UPDATE DATABASE CONNECTION ---
 connectDB().then(() => {
-  // Run the seed function only after DB connects
   createDefaultAdmin();
 });
 
@@ -35,16 +30,13 @@ app.listen(PORT, () => {
 });
 
 
-// --- ADD THIS FUNCTION AT THE BOTTOM ---
 async function createDefaultAdmin() {
   try {
-    const adminEmail = "admin@edu.eg";
+    const adminEmail = "admin@eng.asu.edu.eg";
     
-    // 1. Check if admin already exists
     const existingAdmin = await User.findOne({ email: adminEmail });
     
     if (!existingAdmin) {
-      // 2. If not, create one
       const hashedPassword = await bcrypt.hash("admin123", 10);
       
       await User.create({
@@ -54,9 +46,9 @@ async function createDefaultAdmin() {
         role: "admin" 
       });
       
-      console.log("✅ Default Admin Account Created: admin@edu.eg / admin123");
+      console.log("Default Admin Account Created: admin@eng.asu.edu.eg / admin123");
     } else {
-      console.log("ℹ️ Admin account already exists.");
+      console.log("Admin account already exists.");
     }
   } catch (error) {
     console.error("Error creating default admin:", error.message);

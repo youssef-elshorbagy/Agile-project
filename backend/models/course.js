@@ -8,7 +8,7 @@ const courseSchema = new mongoose.Schema({
   code: { 
     type: String, 
     required: [true, "Course Code is required"],
-    unique: true, // No two courses can have the same code (e.g. CS101)
+    unique: true, 
     uppercase: true
   },
   creditHours: {
@@ -17,13 +17,11 @@ const courseSchema = new mongoose.Schema({
     min: 1,
     max: 6
   },
-  // This links to the User Table (Only Users with role 'teacher')
   instructor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User", 
     required: [true, "Instructor is required"]
   },
-  // We track which students registered here
   studentsEnrolled: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"
@@ -40,7 +38,7 @@ announcements: [{
   }],
   lectures: [{
     title: String,
-    link: String, // URL to the file or video
+    link: String, 
     date: { type: Date, default: Date.now }
   }]
 

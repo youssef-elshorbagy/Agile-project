@@ -4,7 +4,7 @@ const path = require("path");
 // Configure where to store files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/"); // Files will be saved in 'uploads' folder
+    cb(null, "uploads/"); 
   },
   filename: function (req, file, cb) {
     // Save as: lecture-TIMESTAMP.pdf
@@ -13,7 +13,7 @@ const storage = multer.diskStorage({
   }
 });
 
-// Filter to only allow PDFs (optional, but good practice)
+// Filter to only allow PDFs 
 const fileFilter = (req, file, cb) => {
     if (file.mimetype === 'application/pdf') {
         cb(null, true);

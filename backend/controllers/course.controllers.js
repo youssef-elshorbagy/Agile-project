@@ -15,7 +15,6 @@ const createCourse = async (req, res) => {
 
 const getAllCourses = async (req, res) => {
   try {
-    // Populate Instructor AND both student lists so we can show names in Frontend
     const courses = await Course.find()
       .populate("instructor", "fullName")
       .populate("studentsEnrolled", "fullName email")
@@ -27,7 +26,6 @@ const getAllCourses = async (req, res) => {
   }
 };
 
-// 1. Student: Make a Request
 const requestEnrollment = async (req, res) => {
     try {
         const courseId = req.params.id;
@@ -36,7 +34,6 @@ const requestEnrollment = async (req, res) => {
         const course = await Course.findById(courseId);
         if (!course) return res.status(404).json({ status: "fail", message: "Course not found" });
 
-        // Check if already enrolled OR already pending
         if (course.studentsEnrolled.includes(studentId)) {
             return res.status(400).json({ status: "fail", message: "You are already enrolled" });
         }
@@ -44,7 +41,6 @@ const requestEnrollment = async (req, res) => {
             return res.status(400).json({ status: "fail", message: "Request already pending" });
         }
 
-        // Add to Pending List
         course.studentsPending.push(studentId);
         await course.save();
 
@@ -54,24 +50,20 @@ const requestEnrollment = async (req, res) => {
     }
 };
 
-// 2. Admin: Approve/Decline Logic
 const manageEnrollment = async (req, res) => {
     try {
-        const { courseId, studentId, action } = req.body; // action = "approve" or "decline"
+        const { courseId, studentId, action } = req.body; 
         
         const course = await Course.findById(courseId);
         if (!course) return res.status(404).json({ status: "fail", message: "Course not found" });
 
-        // Remove from pending list regardless of action
         course.studentsPending = course.studentsPending.filter(id => id.toString() !== studentId);
 
         if (action === 'approve') {
-            // Add to enrolled if not already there
             if (!course.studentsEnrolled.includes(studentId)) {
                 course.studentsEnrolled.push(studentId);
             }
         }
-        // If 'decline', we just removed them from pending, so we are done.
 
         await course.save();
         res.status(200).json({ status: "success", message: `Request ${action}d successfully` });
@@ -80,27 +72,23 @@ const manageEnrollment = async (req, res) => {
     }
 };
 
-// ... existing imports
 
-// NEW FUNCTION: Get courses specific to the logged-in user
 const getMyCourses = async (req, res) => {
     try {
         const userId = req.userId;
-        const userRole = req.user.role; // This comes from the protectRoutes middleware
+        const userRole = req.user.role; 
 
         let query = {};
 
         if (userRole === 'teacher') {
-            // If Teacher: Find courses where I am the instructor
             query = { instructor: userId };
         } else {
-            // If Student: Find courses where I am in the enrolled list
             query = { studentsEnrolled: userId };
         }
 
         const courses = await Course.find(query)
             .populate("instructor", "fullName")
-            .populate("studentsEnrolled", "fullName"); // Useful for teachers to see count
+            .populate("studentsEnrolled", "fullName"); 
 
         res.status(200).json({ 
             status: "success", 
@@ -113,9 +101,7 @@ const getMyCourses = async (req, res) => {
     }
 };
 
-// ... existing imports (Course, User)
 
-// 1. Get Single Course Details
 const getCourseDetails = async (req, res) => {
     try {
         const course = await Course.findById(req.params.id)
@@ -128,13 +114,11 @@ const getCourseDetails = async (req, res) => {
     }
 };
 
-// 2. Add Announcement (Teacher Only)
 const addAnnouncement = async (req, res) => {
     try {
         const { text } = req.body;
         const course = await Course.findById(req.params.id);
         
-        // Add to beginning of array (newest first)
         course.announcements.unshift({ text });
         await course.save();
 
@@ -144,7 +128,6 @@ const addAnnouncement = async (req, res) => {
     }
 };
 
-// 3. Add Lecture (Teacher Only)
 const addLecture = async (req, res) => {
     try {
         const { title } = req.body;
@@ -154,13 +137,11 @@ const addLecture = async (req, res) => {
             return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
         }
 
-        // Create the URL (e.g., http://localhost:3000/uploads/lecture-123.pdf)
-        // We store the relative path
         const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
 
         course.lectures.push({ 
             title, 
-            link: fileUrl // We save the generated URL here
+            link: fileUrl
         });
         
         await course.save();

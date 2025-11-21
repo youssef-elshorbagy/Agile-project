@@ -13,12 +13,11 @@ router.post("/", userControllers.protectRoutes, courseControllers.createCourse);
 router.post("/:id/announcement", userControllers.protectRoutes, courseControllers.addAnnouncement);
 router.post("/:id/lecture", 
     userControllers.protectRoutes, 
-    upload.single("file"), // 'file' is the name we will use in frontend
+    upload.single("file"), 
     courseControllers.addLecture
 );
 router.post("/:id/request", userControllers.protectRoutes, courseControllers.requestEnrollment);
 
-// Admin approves/declines
 router.post("/manage-request", userControllers.protectRoutes, courseControllers.manageEnrollment);
 
 module.exports = router;

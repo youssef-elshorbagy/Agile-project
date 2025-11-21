@@ -14,7 +14,6 @@ const userSchema = new mongoose.Schema({
     unique: true,
     validate: {
       validator: function(v) {
-        // Custom Validator: Must end with specific domain
         return v.endsWith("@eng.asu.edu.eg");
       },
       message: "Email must be an official address (@eng.asu.edu.eg)"

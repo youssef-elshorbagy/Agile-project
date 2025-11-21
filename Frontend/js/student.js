@@ -1,6 +1,6 @@
 const session = requireAuth('student');
 
-// 2. Load Data on Startup
+// Load Data on Startup
 document.addEventListener('DOMContentLoaded', () => {
     if(session) {
         document.getElementById('studentName').textContent = session.user.fullName;
