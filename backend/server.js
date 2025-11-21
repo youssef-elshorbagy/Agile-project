@@ -43,7 +43,8 @@ async function createDefaultAdmin() {
         fullName: "System Admin",
         email: adminEmail,
         password: hashedPassword,
-        role: "admin" 
+        role: "admin", 
+        universityId: 1
       });
       
       console.log("Default Admin Account Created: admin@eng.asu.edu.eg / admin123");
