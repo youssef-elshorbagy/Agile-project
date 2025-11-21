@@ -1,13 +1,11 @@
 const User = require("../models/user");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-// REMOVED: fs and path are no longer needed since we aren't handling files
 
 const signup = async (req, res) => {
   try {
     let { password, fullName, email, role, universityId, gpa, level } = req.body;
 
-    // 1. Standard Validations
     if (password.length < 8) return res.status(400).json({ status: "fail", message: "Password must be at least 8 characters" });
     if (!/^[A-Z]/.test(password)) return res.status(400).json({ status: "fail", message: "Password must start with a Capital Letter" });
     if (!role || (role !== "student" && role !== "teacher" && role !== "admin")) return res.status(400).json({ status: "fail", message: "Invalid Role" });
@@ -18,10 +16,8 @@ const signup = async (req, res) => {
     const existingId = await User.findOne({ universityId: universityId });
     if (existingId) return res.status(400).json({ status: "fail", message: "University ID already exists" });
 
-    // 2. Hash Password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 3. Prepare Data Object
     const userData = { 
       fullName, 
       email, 
@@ -32,15 +28,12 @@ const signup = async (req, res) => {
       level 
     };
 
-    // --- AUTO-ASSIGN GPA ONLY FOR STUDENTS ---
-    // Admins don't write this. We set it to 0 automatically here.
+   
     if (role === 'student') {
         userData.gpa = 0.00;
         userData.level = 1;
     }
-    // If role is 'teacher' or 'admin', these fields remain undefined (not present).
 
-    // 4. Create User in Database
     const user = await User.create(userData);
 
     const token = jwt.sign(
@@ -81,12 +74,11 @@ const login = async (req, res) => {
   }
   
   const token = jwt.sign(
-    { id: existingUser._id, name: existingUser.fullName }, // Changed name to fullName
+    { id: existingUser._id, name: existingUser.fullName }, 
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN }
   );
   
-  // REMOVED: photo from response
   return res.status(200).json({
     status: "success",
     token: token,
@@ -149,7 +141,6 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    // CHANGED: name -> fullName. Removed photo. Removed Phone (unless you added phone to the model)
     const { fullName } = req.body;
     
     const updatedUser = await User.findByIdAndUpdate(

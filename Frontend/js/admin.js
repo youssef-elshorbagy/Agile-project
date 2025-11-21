@@ -1,13 +1,13 @@
-// 1. Security Check
+// Security Check
 const session = requireAuth('admin');
 
-// 2. Load Data on Startup
+// Load Data on Startup
 document.addEventListener('DOMContentLoaded', () => {
     if(session) {
         document.getElementById('adminName').textContent = session.user.fullName;
-        loadUsers();       // Load Users for Tab 1
-        loadInstructors(); // Load Teachers for Tab 2 Dropdown
-        loadCourses();     // Load Courses for Tab 2 List
+        loadUsers();       
+        loadInstructors(); 
+        loadCourses();     
     }
 });
 
@@ -28,7 +28,6 @@ function switchView(viewName, element) {
     }
 }
 
--
 
 async function loadUsers() {
     const tbody = document.getElementById('usersTableBody');
@@ -113,8 +112,6 @@ function toggleAddUserForm() {
 }
 
 
-
-
 async function loadInstructors() {
     const select = document.getElementById('courseInstructor');
     try {
@@ -166,7 +163,7 @@ async function addCourse(e) {
             successDiv.style.display = 'block';
             errorDiv.style.display = 'none';
             document.getElementById('courseForm').reset();
-            loadCourses(); // Refresh list
+            loadCourses(); 
         } else {
             throw new Error(result.message);
         }
@@ -177,9 +174,11 @@ async function addCourse(e) {
     }
 }
 
+
+
 async function loadCourses() {
-    const tbody = document.getElementById('coursesTableBody'); 
-    const requestsBody = document.getElementById('requestsTableBody'); 
+    const tbody = document.getElementById('coursesTableBody');
+    const requestsBody = document.getElementById('requestsTableBody');
 
     try {
         const response = await fetch(`${API_URL}/courses`, {
@@ -223,13 +222,11 @@ async function loadCourses() {
             });
             
             if(requestsBody.innerHTML === '') {
-                requestsBody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#888;">No pending requests</td></tr>';
+                requestsBody.innerHTML = '<tr><td colspan="3" style="text-align:center">No pending requests</td></tr>';
             }
         }
     } catch (err) { console.error(err); }
 }
-
-
 
 async function handleRequest(courseId, studentId, action) {
     try {

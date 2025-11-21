@@ -1,5 +1,5 @@
 {
-  "name": "sa3i_productivity_backend",
+  "name": "ums_backend",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
