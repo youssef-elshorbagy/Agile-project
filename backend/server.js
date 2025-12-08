@@ -1,61 +1,55 @@
 const express = require("express");
 require("dotenv").config();
 const path = require("path");
-const connectDB = require("./config/db");
-const userRoutes = require("./routes/auth");
-const courseRoutes = require("./routes/courses");
 const cors = require("cors"); 
-
-const User = require("./models/user");
 const bcrypt = require("bcryptjs");
 
+const { connectToDB, sql } = require("./config/db");
+
+const userRoutes = require("./routes/auth");
+const courseRoutes = require("./routes/courses");
+
 const app = express();
+
 app.use(cors());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-
-connectDB().then(() => {
-  createDefaultAdmin();
-});
-
 app.use(express.json());
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/users", userRoutes);
 app.use("/courses", courseRoutes);
 
 const PORT = 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+connectToDB().then(() => {
+  createDefaultAdmin().then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  });
 });
-
 
 async function createDefaultAdmin() {
   try {
     const adminEmail = "admin@eng.asu.edu.eg";
     
-    const existingAdmin = await User.findOne({ email: adminEmail });
+    const checkResult = await sql.query(`SELECT * FROM Users WHERE email = '${adminEmail}'`);
     
-    if (!existingAdmin) {
+    if (checkResult.recordset.length === 0) {
       const hashedPassword = await bcrypt.hash("admin123", 10);
       
-      await User.create({
-        fullName: "System Admin",
-        email: adminEmail,
-        password: hashedPassword,
-        role: "admin", 
-        universityId: 1
-      });
+      await sql.query(`
+        INSERT INTO Users (universityId, fullName, email, password, role) 
+        VALUES ('1', 'System Admin', '${adminEmail}', '${hashedPassword}', 'admin')
+      `);
       
-      console.log("Default Admin Account Created: admin@eng.asu.edu.eg / admin123");
+      console.log("✅ Default Admin Account Created: admin@eng.asu.edu.eg / admin123");
     } else {
-      console.log("Admin account already exists.");
+      console.log("ℹ️ Admin account already exists.");
     }
   } catch (error) {
-    console.error("Error creating default admin:", error.message);
+    console.error("❌ Error creating default admin:", error.message);
   }
 }
 
 module.exports = app;
-// localhost:3000
-// 3tGaNPBxzntR6te4

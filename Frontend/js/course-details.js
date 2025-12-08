@@ -38,49 +38,86 @@ async function loadCourseDetails() {
         const result = await response.json();
 
         if (response.ok) {
-            const c = result.data.course;
+            // 1. Handle if 'course' is inside data or direct
+            const c = result.data?.course || result.data || result;
             
-            document.getElementById('courseName').textContent = c.name;
-            document.getElementById('courseCode').textContent = `${c.code} - Instructor: ${c.instructor.fullName}`;
+            // 2. Fix Course Info Capitalization
+            const instructor = c.instructor || c.Instructor || {};
+            const instructorName = instructor.fullName || instructor.FullName || "Unknown Instructor";
+            
+            document.getElementById('courseName').textContent = c.name || c.Name;
+            document.getElementById('courseCode').textContent = `${c.code || c.Code} - Instructor: ${instructorName}`;
 
+            // --- FIXING ANNOUNCEMENTS ---
             const annList = document.getElementById('announcementsList');
             annList.innerHTML = '';
-            if(c.announcements.length === 0) {
+            
+            // Safety check: ensure announcements exists and is an array
+            const announcements = c.announcements || c.Announcements || [];
+
+            if(announcements.length === 0) {
                 annList.innerHTML = '<p style="color:#999">No announcements yet.</p>';
             }
-            c.announcements.forEach(a => {
-                const date = new Date(a.date).toLocaleDateString();
+
+            announcements.forEach(a => {
+                // TRIAGE: Check all common SQL column names
+                const rawDate = a.date || a.Date || a.createdAt || a.CreatedAt;
+                const text = a.text || a.Text || a.content || a.Content || "No content";
+                
+                // Fix "Invalid Date"
+                const dateObj = rawDate ? new Date(rawDate) : new Date();
+                const dateStr = dateObj.toLocaleDateString();
+
                 annList.innerHTML += `
                     <div class="announcement-item">
                         <div class="announcement-content">
                             <h4>📢 Announcement</h4>
-                            <p>${a.text}</p>
-                            <span class="date-stamp">${date}</span>
+                            <p>${text}</p>
+                            <span class="date-stamp">${dateStr}</span>
                         </div>
                     </div>
                 `;
             });
 
+            // --- FIXING LECTURES ---
             const lecList = document.getElementById('lecturesList');
             lecList.innerHTML = '';
-            if(c.lectures.length === 0) {
+            
+            // Safety check: ensure lectures exists
+            const lectures = c.lectures || c.Lectures || [];
+
+            if(lectures.length === 0) {
                 lecList.innerHTML = '<p style="color:#999">No lectures uploaded yet.</p>';
             }
-            c.lectures.forEach(l => {
-                const date = new Date(l.date).toLocaleDateString();
+
+            lectures.forEach(l => {
+                // TRIAGE: Check common SQL column names for lectures
+                const rawDate = l.date || l.Date || l.createdAt || l.CreatedAt;
+                const title = l.title || l.Title || "Untitled Lecture";
+                
+                // IMPORTANT: Your backend likely returns a file path now, not a full 'link'
+                // Ensure we catch 'filePath', 'url', 'Link', etc.
+                const link = l.link || l.Link || l.filePath || l.FilePath || l.url || "#";
+
+                const dateObj = rawDate ? new Date(rawDate) : new Date();
+                const dateStr = dateObj.toLocaleDateString();
+
                 lecList.innerHTML += `
                     <div class="lecture-item">
                         <div>
-                            <strong><img src="images/pdf.png" style="width:24px; vertical-align: middle; margin-right: 10px;"> ${l.title} </img> </strong>
-                            <span class="date-stamp">Posted on ${date}</span>
+                            <strong>
+                                <img src="images/pdf.png" style="width:24px; vertical-align: middle; margin-right: 10px;"> 
+                                ${title} 
+                            </strong>
+                            <span class="date-stamp">Posted on ${dateStr}</span>
                         </div>
-                        <a href="${l.link}" target="_blank" class="lecture-link">View</a>
+                        <a href="${link}" target="_blank" class="lecture-link">View</a>
                     </div>
                 `;
             });
 
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Error loading details:", err); }
 }
 
 

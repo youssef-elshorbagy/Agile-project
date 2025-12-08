@@ -4,7 +4,10 @@ const path = require("path");
 // Configure where to store files
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/"); 
+    // UPDATED: consistently finds the folder at the project root
+    // __dirname = current folder (middleware)
+    // ../uploads = go up one level, then into uploads
+    cb(null, path.join(__dirname, "../uploads")); 
   },
   filename: function (req, file, cb) {
     // Save as: lecture-TIMESTAMP.pdf

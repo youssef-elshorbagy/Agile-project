@@ -1,14 +1,19 @@
-const mongoose = require("mongoose");
+const sql = require('mssql/msnodesqlv8');
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      dbName: process.env.d_bName,
-    });
-    console.log(`Database Connection Successfully`);
-  } catch (error) {
-    console.log(`Error in Connection with Database. ${error}`);
-  }
+const config = {
+  connectionString: 'Driver={ODBC Driver 17 for SQL Server};Server=5530-WIN11;Database=UMS_DB;Trusted_Connection=Yes;Encrypt=no;TrustServerCertificate=yes;',
+  driver: 'msnodesqlv8'
 };
 
-module.exports = connectDB;
+async function connectToDB() {
+  try {
+    const pool = await sql.connect(config);
+    console.log('✅ MSSQL Connected to 5530-WIN11');
+    return pool;
+  } catch (err) {
+    console.error('❌ DB Connection Error:', err);
+    throw err;
+  }
+}
+
+module.exports = { connectToDB, sql };
