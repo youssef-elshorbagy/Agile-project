@@ -127,7 +127,7 @@ async function loadInstructors() {
             
             teachers.forEach(t => {
                 const option = document.createElement('option');
-                option.value = t._id;
+                option.value = t.id;
                 option.textContent = t.fullName;
                 select.appendChild(option);
             });
@@ -206,11 +206,11 @@ async function loadCourses() {
                                 <td><strong>${c.code}</strong> - ${c.name}</td>
                                 <td>${student.fullName} (${student.email})</td>
                                 <td>
-                                    <button onclick="handleRequest('${c._id}', '${student._id}', 'approve')" 
+                                    <button onclick="handleRequest('${c.id}', '${student.id}', 'approve')" 
                                             style="background:#2ed573; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; margin-right:5px;">
                                         Approve
                                     </button>
-                                    <button onclick="handleRequest('${c._id}', '${student._id}', 'decline')" 
+                                    <button onclick="handleRequest('${c.id}', '${student.id}', 'decline')" 
                                             style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">
                                         Decline
                                     </button>

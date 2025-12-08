@@ -36,20 +36,33 @@ async function loadTeacherCourses() {
 
         if(response.ok) {
             grid.innerHTML = '';
+            
+            // 1. IMPORTANT: Check if the data is inside 'result.data.courses' or just 'result'
+            // SQL backends sometimes just return the array directly.
+            const courses = result.data?.courses || result.data || result;
 
-            if(result.data.courses.length === 0) {
+            if(!courses || courses.length === 0) {
                 grid.innerHTML = '<p>You have not been assigned any courses yet.</p>';
                 return;
             }
 
-            result.data.courses.forEach(c => {
-                const studentCount = c.studentsEnrolled.length;
-                const pendingCount = c.studentsPending.length;
+            courses.forEach(c => {
+                // 2. SAFETY FIX: Use ( || [] ) to prevent crashing if the array is missing
+                // This says: "If studentsEnrolled is undefined, use an empty list instead"
+                const studentCount = (c.studentsEnrolled || []).length;
+                const pendingCount = (c.studentsPending || []).length;
+
+                // 3. CAPITALIZATION FIX: SQL often returns PascalCase (Name vs name)
+                // We check both c.Name AND c.name just to be safe.
+                const courseName = c.Name || c.name;
+                const courseCode = c.Code || c.code;
+                const creditHours = c.CreditHours || c.creditHours;
+                const courseId = c.id || c.CourseID || c.ID; // Check for ID variations
 
                 grid.innerHTML += `
-                    <div class="course-card" onclick="window.location.href='course-details.html?id=${c._id}'" style="cursor: pointer;">
-                        <h3>${c.name}</h3>
-                        <p>${c.code} - ${c.creditHours} Credits</p>
+                    <div class="course-card" onclick="window.location.href='course-details.html?id=${courseId}'" style="cursor: pointer;">
+                        <h3>${courseName}</h3>
+                        <p>${courseCode} - ${creditHours} Credits</p>
                         <div class="course-info" style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 10px; margin-top: 10px;">
                             <span style="display:block;">Students Enrolled: <strong>${studentCount}</strong></span>
                             <span style="display:block;">Pending Requests: <strong>${pendingCount}</strong></span>
@@ -58,5 +71,7 @@ async function loadTeacherCourses() {
                 `;
             });
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+        console.error("Error loading courses:", err); 
+    }
 }

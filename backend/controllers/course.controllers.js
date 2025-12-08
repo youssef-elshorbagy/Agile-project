@@ -1,12 +1,21 @@
-const Course = require("../models/course");
+const { sql } = require("../config/db");
 
 const createCourse = async (req, res) => {
   try {
     const { name, code, creditHours, instructor } = req.body;
-    const existingCourse = await Course.findOne({ code });
-    if (existingCourse) return res.status(400).json({ status: "fail", message: "Course Code already exists" });
 
-    const newCourse = await Course.create({ name, code, creditHours, instructor });
+    const check = await sql.query(`SELECT * FROM Courses WHERE code = '${code}'`);
+    if (check.recordset.length > 0) {
+        return res.status(400).json({ status: "fail", message: "Course Code already exists" });
+    }
+
+    const result = await sql.query(`
+        INSERT INTO Courses (name, code, creditHours, instructorId)
+        OUTPUT INSERTED.*
+        VALUES ('${name}', '${code}', ${creditHours}, ${instructor})
+    `);
+
+    const newCourse = result.recordset[0];
     res.status(201).json({ status: "success", data: { course: newCourse } });
   } catch (error) {
     res.status(400).json({ status: "fail", message: error.message });
@@ -15,10 +24,33 @@ const createCourse = async (req, res) => {
 
 const getAllCourses = async (req, res) => {
   try {
-    const courses = await Course.find()
-      .populate("instructor", "fullName")
-      .populate("studentsEnrolled", "fullName email")
-      .populate("studentsPending", "fullName email");
+    const result = await sql.query(`
+        SELECT C.*, U.fullName as instructorName, U.id as instructorId 
+        FROM Courses C 
+        LEFT JOIN Users U ON C.instructorId = U.id
+    `);
+    
+    let courses = result.recordset;
+
+    for (let course of courses) {
+        const pendingRes = await sql.query(`
+            SELECT U.id, U.fullName, U.email 
+            FROM Enrollments E
+            JOIN Users U ON E.studentId = U.id
+            WHERE E.courseId = ${course.id} AND E.status = 'pending'
+        `);
+        course.studentsPending = pendingRes.recordset;
+
+        const enrolledRes = await sql.query(`
+            SELECT U.id, U.fullName, U.email 
+            FROM Enrollments E
+            JOIN Users U ON E.studentId = U.id
+            WHERE E.courseId = ${course.id} AND E.status = 'enrolled'
+        `);
+        course.studentsEnrolled = enrolledRes.recordset;
+
+        course.instructor = { fullName: course.instructorName, id: course.instructorId };
+    }
     
     res.status(200).json({ status: "success", results: courses.length, data: { courses } });
   } catch (error) {
@@ -29,20 +61,23 @@ const getAllCourses = async (req, res) => {
 const requestEnrollment = async (req, res) => {
     try {
         const courseId = req.params.id;
-        const studentId = req.userId;
+        const studentId = req.user.id; 
 
-        const course = await Course.findById(courseId);
-        if (!course) return res.status(404).json({ status: "fail", message: "Course not found" });
+        const courseCheck = await sql.query(`SELECT * FROM Courses WHERE id = ${courseId}`);
+        if(courseCheck.recordset.length === 0) return res.status(404).json({ status: "fail", message: "Course not found" });
 
-        if (course.studentsEnrolled.includes(studentId)) {
-            return res.status(400).json({ status: "fail", message: "You are already enrolled" });
+        const enrollCheck = await sql.query(`SELECT * FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`);
+        
+        if (enrollCheck.recordset.length > 0) {
+            const status = enrollCheck.recordset[0].status;
+            if (status === 'enrolled') return res.status(400).json({ status: "fail", message: "You are already enrolled" });
+            if (status === 'pending') return res.status(400).json({ status: "fail", message: "Request already pending" });
         }
-        if (course.studentsPending.includes(studentId)) {
-            return res.status(400).json({ status: "fail", message: "Request already pending" });
-        }
 
-        course.studentsPending.push(studentId);
-        await course.save();
+        await sql.query(`
+            INSERT INTO Enrollments (studentId, courseId, status)
+            VALUES (${studentId}, ${courseId}, 'pending')
+        `);
 
         res.status(200).json({ status: "success", message: "Request sent successfully" });
     } catch (error) {
@@ -54,41 +89,54 @@ const manageEnrollment = async (req, res) => {
     try {
         const { courseId, studentId, action } = req.body; 
         
-        const course = await Course.findById(courseId);
-        if (!course) return res.status(404).json({ status: "fail", message: "Course not found" });
-
-        course.studentsPending = course.studentsPending.filter(id => id.toString() !== studentId);
-
         if (action === 'approve') {
-            if (!course.studentsEnrolled.includes(studentId)) {
-                course.studentsEnrolled.push(studentId);
-            }
+            await sql.query(`
+                UPDATE Enrollments 
+                SET status = 'enrolled' 
+                WHERE studentId = ${studentId} AND courseId = ${courseId}
+            `);
+        } else {
+            await sql.query(`
+                DELETE FROM Enrollments 
+                WHERE studentId = ${studentId} AND courseId = ${courseId}
+            `);
         }
 
-        await course.save();
         res.status(200).json({ status: "success", message: `Request ${action}d successfully` });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
     }
 };
 
-
 const getMyCourses = async (req, res) => {
     try {
-        const userId = req.userId;
+        const userId = req.user.id;
         const userRole = req.user.role; 
 
-        let query = {};
+        let query = "";
 
         if (userRole === 'teacher') {
-            query = { instructor: userId };
+            query = `
+                SELECT C.*, U.fullName as instructorName 
+                FROM Courses C
+                JOIN Users U ON C.instructorId = U.id
+                WHERE C.instructorId = ${userId}
+            `;
         } else {
-            query = { studentsEnrolled: userId };
+            query = `
+                SELECT C.*, U.fullName as instructorName 
+                FROM Courses C
+                JOIN Enrollments E ON C.id = E.courseId
+                JOIN Users U ON C.instructorId = U.id
+                WHERE E.studentId = ${userId} AND E.status = 'enrolled'
+            `;
         }
 
-        const courses = await Course.find(query)
-            .populate("instructor", "fullName")
-            .populate("studentsEnrolled", "fullName"); 
+        const result = await sql.query(query);
+        const courses = result.recordset.map(c => ({
+            ...c,
+            instructor: { fullName: c.instructorName } 
+        }));
 
         res.status(200).json({ 
             status: "success", 
@@ -101,13 +149,33 @@ const getMyCourses = async (req, res) => {
     }
 };
 
-
 const getCourseDetails = async (req, res) => {
     try {
-        const course = await Course.findById(req.params.id)
-            .populate("instructor", "fullName");
-        if(!course) return res.status(404).json({ status: "fail", message: "Course not found" });
+        const courseId = req.params.id;
+
+        const courseRes = await sql.query(`
+            SELECT C.*, U.fullName as instructorName 
+            FROM Courses C
+            JOIN Users U ON C.instructorId = U.id
+            WHERE C.id = ${courseId}
+        `);
+
+        if(courseRes.recordset.length === 0) return res.status(404).json({ status: "fail", message: "Course not found" });
+
+        const course = courseRes.recordset[0];
         
+        course.instructor = { fullName: course.instructorName };
+
+        const annRes = await sql.query(`SELECT * FROM Announcements WHERE courseId = ${courseId} ORDER BY createdAt DESC`);
+        course.announcements = annRes.recordset;
+
+        const lecRes = await sql.query(`SELECT * FROM Lectures WHERE courseId = ${courseId} ORDER BY createdAt DESC`);
+        
+        course.lectures = lecRes.recordset.map(l => ({
+            title: l.title,
+            link: `${req.protocol}://${req.get('host')}/uploads/${l.fileName}`
+        }));
+
         res.status(200).json({ status: "success", data: { course } });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
@@ -116,11 +184,16 @@ const getCourseDetails = async (req, res) => {
 
 const addAnnouncement = async (req, res) => {
     try {
-        const { text } = req.body;
-        const course = await Course.findById(req.params.id);
-        
-        course.announcements.unshift({ text });
-        await course.save();
+        const { text } = req.body; 
+        const courseId = req.params.id;
+        const teacherName = req.user.fullName;
+
+        const safeContent = text.replace(/'/g, "''"); 
+
+        await sql.query(`
+            INSERT INTO Announcements (courseId, teacherName, content)
+            VALUES (${courseId}, '${teacherName}', '${safeContent}')
+        `);
 
         res.status(200).json({ status: "success", message: "Announcement added" });
     } catch (error) {
@@ -131,20 +204,16 @@ const addAnnouncement = async (req, res) => {
 const addLecture = async (req, res) => {
     try {
         const { title } = req.body;
-        const course = await Course.findById(req.params.id);
+        const courseId = req.params.id;
         
         if (!req.file) {
             return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
         }
 
-        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-        course.lectures.push({ 
-            title, 
-            link: fileUrl
-        });
-        
-        await course.save();
+        await sql.query(`
+            INSERT INTO Lectures (courseId, title, fileName, filePath)
+            VALUES (${courseId}, '${title}', '${req.file.filename}', '${req.file.path.replace(/\\/g, "\\\\")}')
+        `);
 
         res.status(200).json({ status: "success", message: "Lecture uploaded" });
     } catch (error) {

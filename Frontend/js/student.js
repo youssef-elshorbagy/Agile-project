@@ -73,7 +73,7 @@ async function loadMyCourses() {
 
             result.data.courses.forEach(c => {
                 grid.innerHTML += `
-                    <div class="course-card" onclick="window.location.href='course-details.html?id=${c._id}'" style="cursor: pointer;">
+                    <div class="course-card" onclick="window.location.href='course-details.html?id=${c.id}'" style="cursor: pointer;">
                         <h3>${c.name}</h3>
                         <p>${c.code} - ${c.creditHours} Credit Hours</p>
                         <div class="course-info">
@@ -104,20 +104,20 @@ async function loadAvailableCourses() {
 
         if(response.ok) {
             tbody.innerHTML = '';
-            const myId = session.user._id; 
+            const myId = session.user.id; 
 
             result.data.courses.forEach(c => {
                 let actionBtn = '';
                 
-                const isEnrolled = c.studentsEnrolled.some(s => s._id === myId || s === myId);
-                const isPending = c.studentsPending.some(s => s._id === myId || s === myId);
+                const isEnrolled = c.studentsEnrolled.some(s => s.id === myId || s === myId);
+                const isPending = c.studentsPending.some(s => s.id === myId || s === myId);
 
                 if (isEnrolled) {
                     actionBtn = `<span class="status-badge status-completed">Enrolled</span>`;
                 } else if (isPending) {
                     actionBtn = `<span class="status-badge status-pending">Pending</span>`;
                 } else {
-                    actionBtn = `<button onclick="requestCourse('${c._id}')" class="register-btn">Request</button>`;
+                    actionBtn = `<button onclick="requestCourse('${c.id}')" class="register-btn">Request</button>`;
                 }
 
                 tbody.innerHTML += `
