@@ -32,75 +32,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadCourseDetails() {
     try {
+        console.log("Fetching details for Course ID:", courseId);
+
         const response = await fetch(`${API_URL}/courses/${courseId}`, {
             headers: { 'Authorization': `Bearer ${session.token}` }
         });
+        
         const result = await response.json();
 
-        if (response.ok) {
-            // 1. Handle if 'course' is inside data or direct
-            const c = result.data?.course || result.data || result;
-            
-            // 2. Fix Course Info Capitalization
-            const instructor = c.instructor || c.Instructor || {};
-            const instructorName = instructor.fullName || instructor.FullName || "Unknown Instructor";
-            
-            document.getElementById('courseName').textContent = c.name || c.Name;
-            document.getElementById('courseCode').textContent = `${c.code || c.Code} - Instructor: ${instructorName}`;
+        // Debugging: Log what the backend actually sent
+        console.log("Backend Response:", result);
 
-            // --- FIXING ANNOUNCEMENTS ---
-            const annList = document.getElementById('announcementsList');
-            annList.innerHTML = '';
-            
-            // Safety check: ensure announcements exists and is an array
-            const announcements = c.announcements || c.Announcements || [];
-
-            if(announcements.length === 0) {
-                annList.innerHTML = '<p style="color:#999">No announcements yet.</p>';
+        if (!response.ok) {
+            if (response.status === 401) {
+                alert("Session expired. Please login again.");
+                window.location.href = "index.html";
+                return;
             }
+            alert(`Error: ${result.message}`);
+            return;
+        }
 
+        // 1. Get Course Object
+        const c = result.data?.course;
+        if (!c) throw new Error("Course data is missing from response");
+
+        // 2. Populate Header Info
+        // Backend sends: instructor: { fullName: "Dr. Smith" }
+        const instructorName = c.instructor?.fullName || "Unknown Instructor";
+        
+        document.getElementById('courseName').textContent = c.name;
+        document.getElementById('courseCode').textContent = `${c.code} - Instructor: ${instructorName}`;
+
+        // 3. Populate Announcements
+        const annList = document.getElementById('announcementsList');
+        annList.innerHTML = '';
+        
+        const announcements = c.announcements || [];
+
+        if (announcements.length === 0) {
+            annList.innerHTML = '<p style="color:#999">No announcements yet.</p>';
+        } else {
             announcements.forEach(a => {
-                // TRIAGE: Check all common SQL column names
-                const rawDate = a.date || a.Date || a.createdAt || a.CreatedAt;
-                const text = a.text || a.Text || a.content || a.Content || "No content";
-                
-                // Fix "Invalid Date"
-                const dateObj = rawDate ? new Date(rawDate) : new Date();
-                const dateStr = dateObj.toLocaleDateString();
+                // Backend sends: { content: "...", teacherName: "...", createdAt: "..." }
+                const text = a.content || "No content"; 
+                const teacher = a.teacherName || "Instructor";
+                const dateStr = new Date(a.createdAt).toLocaleDateString();
 
                 annList.innerHTML += `
                     <div class="announcement-item">
                         <div class="announcement-content">
-                            <h4>📢 Announcement</h4>
+                            <h4>📢 Announcement <small style="font-size:0.8em; color:#666">by ${teacher}</small></h4>
                             <p>${text}</p>
                             <span class="date-stamp">${dateStr}</span>
                         </div>
                     </div>
                 `;
             });
+        }
 
-            // --- FIXING LECTURES ---
-            const lecList = document.getElementById('lecturesList');
-            lecList.innerHTML = '';
-            
-            // Safety check: ensure lectures exists
-            const lectures = c.lectures || c.Lectures || [];
+        // 4. Populate Lectures
+        const lecList = document.getElementById('lecturesList');
+        lecList.innerHTML = '';
+        
+        const lectures = c.lectures || [];
 
-            if(lectures.length === 0) {
-                lecList.innerHTML = '<p style="color:#999">No lectures uploaded yet.</p>';
-            }
-
+        if (lectures.length === 0) {
+            lecList.innerHTML = '<p style="color:#999">No lectures uploaded yet.</p>';
+        } else {
             lectures.forEach(l => {
-                // TRIAGE: Check common SQL column names for lectures
-                const rawDate = l.date || l.Date || l.createdAt || l.CreatedAt;
-                const title = l.title || l.Title || "Untitled Lecture";
-                
-                // IMPORTANT: Your backend likely returns a file path now, not a full 'link'
-                // Ensure we catch 'filePath', 'url', 'Link', etc.
-                const link = l.link || l.Link || l.filePath || l.FilePath || l.url || "#";
-
-                const dateObj = rawDate ? new Date(rawDate) : new Date();
-                const dateStr = dateObj.toLocaleDateString();
+                // Backend sends: { title: "...", link: "http://..." }
+                const title = l.title || "Untitled Lecture";
+                const link = l.link || "#";
+                const dateStr = new Date(l.createdAt).toLocaleDateString();
 
                 lecList.innerHTML += `
                     <div class="lecture-item">
@@ -109,15 +113,19 @@ async function loadCourseDetails() {
                                 <img src="images/pdf.png" style="width:24px; vertical-align: middle; margin-right: 10px;"> 
                                 ${title} 
                             </strong>
-                            <span class="date-stamp">Posted on ${dateStr}</span>
+                            <br>
+                            <span class="date-stamp" style="margin-left:38px">Posted on ${dateStr}</span>
                         </div>
                         <a href="${link}" target="_blank" class="lecture-link">View</a>
                     </div>
                 `;
             });
-
         }
-    } catch (err) { console.error("Error loading details:", err); }
+
+    } catch (err) { 
+        console.error("Error loading details:", err); 
+        alert("Failed to load course details. Check console for error.");
+    }
 }
 
 

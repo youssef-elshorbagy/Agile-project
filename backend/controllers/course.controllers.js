@@ -9,14 +9,32 @@ const createCourse = async (req, res) => {
         return res.status(400).json({ status: "fail", message: "Course Code already exists" });
     }
 
-    const result = await sql.query(`
-        INSERT INTO Courses (name, code, creditHours, instructorId)
-        OUTPUT INSERTED.*
-        VALUES ('${name}', '${code}', ${creditHours}, ${instructor})
-    `);
+    const transaction = new sql.Transaction();
+    await transaction.begin();
 
-    const newCourse = result.recordset[0];
-    res.status(201).json({ status: "success", data: { course: newCourse } });
+    try {
+        const request = new sql.Request(transaction);
+
+        const courseRes = await request.query(`
+            INSERT INTO Courses (name, code, creditHours)
+            OUTPUT INSERTED.*
+            VALUES ('${name}', '${code}', ${creditHours})
+        `);
+        const newCourse = courseRes.recordset[0];
+
+        await request.query(`
+            INSERT INTO CourseInstructors (courseId, personId, instructorType)
+            VALUES (${newCourse.id}, ${instructor}, 'Main')
+        `);
+
+        await transaction.commit();
+        res.status(201).json({ status: "success", data: { course: newCourse } });
+
+    } catch (err) {
+        await transaction.rollback();
+        throw err;
+    }
+
   } catch (error) {
     res.status(400).json({ status: "fail", message: error.message });
   }
@@ -25,31 +43,32 @@ const createCourse = async (req, res) => {
 const getAllCourses = async (req, res) => {
   try {
     const result = await sql.query(`
-        SELECT C.*, U.fullName as instructorName, U.id as instructorId 
+        SELECT C.*, P.fullName as instructorName, P.person_id as instructorId 
         FROM Courses C 
-        LEFT JOIN Users U ON C.instructorId = U.id
+        LEFT JOIN CourseInstructors CI ON C.id = CI.courseId AND CI.instructorType = 'Main'
+        LEFT JOIN People P ON CI.personId = P.person_id
     `);
     
     let courses = result.recordset;
 
     for (let course of courses) {
         const pendingRes = await sql.query(`
-            SELECT U.id, U.fullName, U.email 
+            SELECT P.person_id as id, P.fullName, P.email 
             FROM Enrollments E
-            JOIN Users U ON E.studentId = U.id
+            JOIN People P ON E.studentId = P.person_id
             WHERE E.courseId = ${course.id} AND E.status = 'pending'
         `);
         course.studentsPending = pendingRes.recordset;
 
         const enrolledRes = await sql.query(`
-            SELECT U.id, U.fullName, U.email 
+            SELECT P.person_id as id, P.fullName, P.email 
             FROM Enrollments E
-            JOIN Users U ON E.studentId = U.id
+            JOIN People P ON E.studentId = P.person_id
             WHERE E.courseId = ${course.id} AND E.status = 'enrolled'
         `);
         course.studentsEnrolled = enrolledRes.recordset;
 
-        course.instructor = { fullName: course.instructorName, id: course.instructorId };
+        course.instructor = { fullName: course.instructorName || 'TBD', id: course.instructorId };
     }
     
     res.status(200).json({ status: "success", results: courses.length, data: { courses } });
@@ -117,17 +136,19 @@ const getMyCourses = async (req, res) => {
 
         if (userRole === 'teacher') {
             query = `
-                SELECT C.*, U.fullName as instructorName 
+                SELECT C.*, P.fullName as instructorName 
                 FROM Courses C
-                JOIN Users U ON C.instructorId = U.id
-                WHERE C.instructorId = ${userId}
+                JOIN CourseInstructors CI ON C.id = CI.courseId
+                JOIN People P ON CI.personId = P.person_id
+                WHERE CI.personId = ${userId}
             `;
         } else {
             query = `
-                SELECT C.*, U.fullName as instructorName 
+                SELECT C.*, P.fullName as instructorName 
                 FROM Courses C
                 JOIN Enrollments E ON C.id = E.courseId
-                JOIN Users U ON C.instructorId = U.id
+                LEFT JOIN CourseInstructors CI ON C.id = CI.courseId AND CI.instructorType = 'Main'
+                LEFT JOIN People P ON CI.personId = P.person_id
                 WHERE E.studentId = ${userId} AND E.status = 'enrolled'
             `;
         }
@@ -135,7 +156,7 @@ const getMyCourses = async (req, res) => {
         const result = await sql.query(query);
         const courses = result.recordset.map(c => ({
             ...c,
-            instructor: { fullName: c.instructorName } 
+            instructor: { fullName: c.instructorName || 'TBD' } 
         }));
 
         res.status(200).json({ 
@@ -154,19 +175,27 @@ const getCourseDetails = async (req, res) => {
         const courseId = req.params.id;
 
         const courseRes = await sql.query(`
-            SELECT C.*, U.fullName as instructorName 
+            SELECT C.*, P.fullName as instructorName 
             FROM Courses C
-            JOIN Users U ON C.instructorId = U.id
+            LEFT JOIN CourseInstructors CI ON C.id = CI.courseId AND CI.instructorType = 'Main'
+            LEFT JOIN People P ON CI.personId = P.person_id
             WHERE C.id = ${courseId}
         `);
 
         if(courseRes.recordset.length === 0) return res.status(404).json({ status: "fail", message: "Course not found" });
 
         const course = courseRes.recordset[0];
-        
-        course.instructor = { fullName: course.instructorName };
+        course.instructor = { fullName: course.instructorName || 'TBD' };
 
-        const annRes = await sql.query(`SELECT * FROM Announcements WHERE courseId = ${courseId} ORDER BY createdAt DESC`);
+        // Updated to use fullName directly
+        const annRes = await sql.query(`
+            SELECT A.id, A.content, A.createdAt, A.attachmentsJson,
+                   P.fullName as teacherName 
+            FROM Announcements A
+            JOIN People P ON A.postedBy = P.person_id
+            WHERE A.courseId = ${courseId} 
+            ORDER BY A.createdAt DESC
+        `);
         course.announcements = annRes.recordset;
 
         const lecRes = await sql.query(`SELECT * FROM Lectures WHERE courseId = ${courseId} ORDER BY createdAt DESC`);
@@ -186,13 +215,13 @@ const addAnnouncement = async (req, res) => {
     try {
         const { text } = req.body; 
         const courseId = req.params.id;
-        const teacherName = req.user.fullName;
+        const teacherId = req.user.id;
 
         const safeContent = text.replace(/'/g, "''"); 
 
         await sql.query(`
-            INSERT INTO Announcements (courseId, teacherName, content)
-            VALUES (${courseId}, '${teacherName}', '${safeContent}')
+            INSERT INTO Announcements (courseId, postedBy, content)
+            VALUES (${courseId}, ${teacherId}, '${safeContent}')
         `);
 
         res.status(200).json({ status: "success", message: "Announcement added" });
