@@ -40,13 +40,12 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
 });
 
-
-
-
 // Redirect users to their correct dashboard
 function redirectUser(user) {
     if (user.role === 'admin') {
         window.location.href = 'admin.html';
+    } else if (user.role === 'advisor') {
+        window.location.href = 'advisor.html'; // ✅ Added Advisor Redirect
     } else if (user.role === 'teacher') {
         window.location.href = 'teacher.html';
     } else {

@@ -178,7 +178,7 @@ async function addCourse(e) {
 
 async function loadCourses() {
     const tbody = document.getElementById('coursesTableBody');
-    const requestsBody = document.getElementById('requestsTableBody');
+
 
     try {
         const response = await fetch(`${API_URL}/courses`, {
@@ -188,7 +188,7 @@ async function loadCourses() {
 
         if(response.ok) {
             tbody.innerHTML = '';
-            requestsBody.innerHTML = '';
+           
 
             result.data.courses.forEach(c => {
                 tbody.innerHTML += `
@@ -198,32 +198,9 @@ async function loadCourses() {
                         <td>${c.instructor ? c.instructor.fullName : 'Unknown'}</td>
                     </tr>
                 `;
-
-                if (c.studentsPending && c.studentsPending.length > 0) {
-                    c.studentsPending.forEach(student => {
-                        requestsBody.innerHTML += `
-                            <tr>
-                                <td><strong>${c.code}</strong> - ${c.name}</td>
-                                <td>${student.fullName} (${student.email})</td>
-                                <td>
-                                    <button onclick="handleRequest('${c.id}', '${student.id}', 'approve')" 
-                                            style="background:#2ed573; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; margin-right:5px;">
-                                        Approve
-                                    </button>
-                                    <button onclick="handleRequest('${c.id}', '${student.id}', 'decline')" 
-                                            style="background:#ff4757; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">
-                                        Decline
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
+                
+        
             });
-            
-            if(requestsBody.innerHTML === '') {
-                requestsBody.innerHTML = '<tr><td colspan="3" style="text-align:center">No pending requests</td></tr>';
-            }
         }
     } catch (err) { console.error(err); }
 }

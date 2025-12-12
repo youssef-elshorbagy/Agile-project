@@ -4,37 +4,18 @@ const createCourse = async (req, res) => {
   try {
     const { name, code, creditHours, instructor } = req.body;
 
-    const check = await sql.query(`SELECT * FROM Courses WHERE code = '${code}'`);
-    if (check.recordset.length > 0) {
-        return res.status(400).json({ status: "fail", message: "Course Code already exists" });
-    }
+    // 1. Check if course code exists
+    const check = await sql.query`SELECT * FROM Courses WHERE code = ${code}`;
+    if (check.recordset.length > 0) return res.status(400).json({ status: "fail", message: "Course Code already exists" });
 
-    const transaction = new sql.Transaction();
-    await transaction.begin();
+    // 2. Insert Course (Using 'instructorId' which links to Users table)
+    const result = await sql.query`
+        INSERT INTO Courses (name, code, creditHours, instructorId)
+        OUTPUT INSERTED.*
+        VALUES (${name}, ${code}, ${creditHours}, ${instructor})
+    `;
 
-    try {
-        const request = new sql.Request(transaction);
-
-        const courseRes = await request.query(`
-            INSERT INTO Courses (name, code, creditHours)
-            OUTPUT INSERTED.*
-            VALUES ('${name}', '${code}', ${creditHours})
-        `);
-        const newCourse = courseRes.recordset[0];
-
-        await request.query(`
-            INSERT INTO CourseInstructors (courseId, personId, instructorType)
-            VALUES (${newCourse.id}, ${instructor}, 'Main')
-        `);
-
-        await transaction.commit();
-        res.status(201).json({ status: "success", data: { course: newCourse } });
-
-    } catch (err) {
-        await transaction.rollback();
-        throw err;
-    }
-
+    res.status(201).json({ status: "success", data: { course: result.recordset[0] } });
   } catch (error) {
     res.status(400).json({ status: "fail", message: error.message });
   }
@@ -42,33 +23,32 @@ const createCourse = async (req, res) => {
 
 const getAllCourses = async (req, res) => {
   try {
-    const result = await sql.query(`
-        SELECT C.*, P.fullName as instructorName, P.person_id as instructorId 
+    // 1. Get all courses with Instructor Name
+    const result = await sql.query`
+        SELECT C.*, U.fullName as instructorName, U.id as instructorId 
         FROM Courses C 
-        LEFT JOIN CourseInstructors CI ON C.id = CI.courseId AND CI.instructorType = 'Main'
-        LEFT JOIN People P ON CI.personId = P.person_id
-    `);
-    
+        LEFT JOIN Users U ON C.instructorId = U.id
+    `;
     let courses = result.recordset;
 
+    // 2. Loop to get students (Enrollments)
     for (let course of courses) {
-        const pendingRes = await sql.query(`
-            SELECT P.person_id as id, P.fullName, P.email 
-            FROM Enrollments E
-            JOIN People P ON E.studentId = P.person_id
+        const pendingRes = await sql.query`
+            SELECT U.id, U.fullName, U.email FROM Enrollments E
+            JOIN Users U ON E.studentId = U.id
             WHERE E.courseId = ${course.id} AND E.status = 'pending'
-        `);
+        `;
         course.studentsPending = pendingRes.recordset;
 
-        const enrolledRes = await sql.query(`
-            SELECT P.person_id as id, P.fullName, P.email 
-            FROM Enrollments E
-            JOIN People P ON E.studentId = P.person_id
+        const enrolledRes = await sql.query`
+            SELECT U.id, U.fullName, U.email FROM Enrollments E
+            JOIN Users U ON E.studentId = U.id
             WHERE E.courseId = ${course.id} AND E.status = 'enrolled'
-        `);
+        `;
         course.studentsEnrolled = enrolledRes.recordset;
-
-        course.instructor = { fullName: course.instructorName || 'TBD', id: course.instructorId };
+        
+        // Format instructor object for frontend
+        course.instructor = { fullName: course.instructorName, id: course.instructorId };
     }
     
     res.status(200).json({ status: "success", results: courses.length, data: { courses } });
@@ -82,22 +62,16 @@ const requestEnrollment = async (req, res) => {
         const courseId = req.params.id;
         const studentId = req.user.id; 
 
-        const courseCheck = await sql.query(`SELECT * FROM Courses WHERE id = ${courseId}`);
-        if(courseCheck.recordset.length === 0) return res.status(404).json({ status: "fail", message: "Course not found" });
-
-        const enrollCheck = await sql.query(`SELECT * FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`);
+        // Check if already enrolled/pending
+        const enrollCheck = await sql.query`SELECT * FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`;
         
         if (enrollCheck.recordset.length > 0) {
             const status = enrollCheck.recordset[0].status;
-            if (status === 'enrolled') return res.status(400).json({ status: "fail", message: "You are already enrolled" });
-            if (status === 'pending') return res.status(400).json({ status: "fail", message: "Request already pending" });
+            if (status === 'enrolled') return res.status(400).json({ status: "fail", message: "Already enrolled" });
+            if (status === 'pending') return res.status(400).json({ status: "fail", message: "Already pending" });
         }
 
-        await sql.query(`
-            INSERT INTO Enrollments (studentId, courseId, status)
-            VALUES (${studentId}, ${courseId}, 'pending')
-        `);
-
+        await sql.query`INSERT INTO Enrollments (studentId, courseId, status) VALUES (${studentId}, ${courseId}, 'pending')`;
         res.status(200).json({ status: "success", message: "Request sent successfully" });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
@@ -107,21 +81,18 @@ const requestEnrollment = async (req, res) => {
 const manageEnrollment = async (req, res) => {
     try {
         const { courseId, studentId, action } = req.body; 
+
+        // 🔒 SECURITY: Only Advisors can accept/reject
+        if (req.user.role !== 'advisor') {
+            return res.status(403).json({ status: "fail", message: "Access Denied: Only Advisors can manage requests." });
+        }
         
         if (action === 'approve') {
-            await sql.query(`
-                UPDATE Enrollments 
-                SET status = 'enrolled' 
-                WHERE studentId = ${studentId} AND courseId = ${courseId}
-            `);
+            await sql.query`UPDATE Enrollments SET status = 'enrolled' WHERE studentId = ${studentId} AND courseId = ${courseId}`;
         } else {
-            await sql.query(`
-                DELETE FROM Enrollments 
-                WHERE studentId = ${studentId} AND courseId = ${courseId}
-            `);
+            await sql.query`DELETE FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`;
         }
-
-        res.status(200).json({ status: "success", message: `Request ${action}d successfully` });
+        res.status(200).json({ status: "success", message: `Request ${action}d` });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
     }
@@ -130,41 +101,23 @@ const manageEnrollment = async (req, res) => {
 const getMyCourses = async (req, res) => {
     try {
         const userId = req.user.id;
-        const userRole = req.user.role; 
+        let result;
 
-        let query = "";
-
-        if (userRole === 'teacher') {
-            query = `
-                SELECT C.*, P.fullName as instructorName 
-                FROM Courses C
-                JOIN CourseInstructors CI ON C.id = CI.courseId
-                JOIN People P ON CI.personId = P.person_id
-                WHERE CI.personId = ${userId}
+        if (req.user.role === 'teacher') {
+            result = await sql.query`
+                SELECT C.*, U.fullName as instructorName FROM Courses C
+                JOIN Users U ON C.instructorId = U.id
+                WHERE C.instructorId = ${userId}
             `;
         } else {
-            query = `
-                SELECT C.*, P.fullName as instructorName 
-                FROM Courses C
+            result = await sql.query`
+                SELECT C.*, U.fullName as instructorName FROM Courses C
                 JOIN Enrollments E ON C.id = E.courseId
-                LEFT JOIN CourseInstructors CI ON C.id = CI.courseId AND CI.instructorType = 'Main'
-                LEFT JOIN People P ON CI.personId = P.person_id
+                JOIN Users U ON C.instructorId = U.id
                 WHERE E.studentId = ${userId} AND E.status = 'enrolled'
             `;
         }
-
-        const result = await sql.query(query);
-        const courses = result.recordset.map(c => ({
-            ...c,
-            instructor: { fullName: c.instructorName || 'TBD' } 
-        }));
-
-        res.status(200).json({ 
-            status: "success", 
-            results: courses.length, 
-            data: { courses } 
-        });
-
+        res.status(200).json({ status: "success", data: { courses: result.recordset } });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
     }
@@ -173,33 +126,19 @@ const getMyCourses = async (req, res) => {
 const getCourseDetails = async (req, res) => {
     try {
         const courseId = req.params.id;
-
-        const courseRes = await sql.query(`
-            SELECT C.*, P.fullName as instructorName 
-            FROM Courses C
-            LEFT JOIN CourseInstructors CI ON C.id = CI.courseId AND CI.instructorType = 'Main'
-            LEFT JOIN People P ON CI.personId = P.person_id
-            WHERE C.id = ${courseId}
-        `);
+        const courseRes = await sql.query`
+            SELECT C.*, U.fullName as instructorName FROM Courses C
+            JOIN Users U ON C.instructorId = U.id WHERE C.id = ${courseId}
+        `;
 
         if(courseRes.recordset.length === 0) return res.status(404).json({ status: "fail", message: "Course not found" });
 
         const course = courseRes.recordset[0];
-        course.instructor = { fullName: course.instructorName || 'TBD' };
-
-        // Updated to use fullName directly
-        const annRes = await sql.query(`
-            SELECT A.id, A.content, A.createdAt, A.attachmentsJson,
-                   P.fullName as teacherName 
-            FROM Announcements A
-            JOIN People P ON A.postedBy = P.person_id
-            WHERE A.courseId = ${courseId} 
-            ORDER BY A.createdAt DESC
-        `);
+        
+        const annRes = await sql.query`SELECT * FROM Announcements WHERE courseId = ${courseId} ORDER BY createdAt DESC`;
         course.announcements = annRes.recordset;
 
-        const lecRes = await sql.query(`SELECT * FROM Lectures WHERE courseId = ${courseId} ORDER BY createdAt DESC`);
-        
+        const lecRes = await sql.query`SELECT * FROM Lectures WHERE courseId = ${courseId} ORDER BY createdAt DESC`;
         course.lectures = lecRes.recordset.map(l => ({
             title: l.title,
             link: `${req.protocol}://${req.get('host')}/uploads/${l.fileName}`
@@ -214,16 +153,10 @@ const getCourseDetails = async (req, res) => {
 const addAnnouncement = async (req, res) => {
     try {
         const { text } = req.body; 
-        const courseId = req.params.id;
-        const teacherId = req.user.id;
-
-        const safeContent = text.replace(/'/g, "''"); 
-
-        await sql.query(`
-            INSERT INTO Announcements (courseId, postedBy, content)
-            VALUES (${courseId}, ${teacherId}, '${safeContent}')
-        `);
-
+        await sql.query`
+            INSERT INTO Announcements (courseId, teacherName, content)
+            VALUES (${req.params.id}, ${req.user.fullName}, ${text})
+        `;
         res.status(200).json({ status: "success", message: "Announcement added" });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
@@ -232,18 +165,12 @@ const addAnnouncement = async (req, res) => {
 
 const addLecture = async (req, res) => {
     try {
-        const { title } = req.body;
-        const courseId = req.params.id;
-        
-        if (!req.file) {
-            return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
-        }
+        if (!req.file) return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
 
-        await sql.query(`
+        await sql.query`
             INSERT INTO Lectures (courseId, title, fileName, filePath)
-            VALUES (${courseId}, '${title}', '${req.file.filename}', '${req.file.path.replace(/\\/g, "\\\\")}')
-        `);
-
+            VALUES (${req.params.id}, ${req.body.title}, ${req.file.filename}, ${req.file.path})
+        `;
         res.status(200).json({ status: "success", message: "Lecture uploaded" });
     } catch (error) {
         res.status(400).json({ status: "fail", message: error.message });
