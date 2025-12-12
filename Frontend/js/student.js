@@ -142,7 +142,7 @@ async function requestCourse(courseId) {
         const result = await response.json();
         
         if(response.ok) {
-            alert("Request Sent! Waiting for Admin approval.");
+            alert("Request Sent! Waiting for Academic Advisor approval.");
             loadAvailableCourses(); 
         } else {
             alert(result.message);
