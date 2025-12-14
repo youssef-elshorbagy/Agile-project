@@ -44,8 +44,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 function redirectUser(user) {
     if (user.role === 'admin') {
         window.location.href = 'admin.html';
-    } else if (user.role === 'advisor') {
-        window.location.href = 'advisor.html'; // ✅ Added Advisor Redirect
+    } else if (user.isAdvisor === true) {
+        // advisors use the teacher dashboard
+        window.location.href = 'teacher.html';
     } else if (user.role === 'teacher') {
         window.location.href = 'teacher.html';
     } else {

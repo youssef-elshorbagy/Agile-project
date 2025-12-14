@@ -23,6 +23,12 @@ router.post("/:id/lecture",
     upload.single("file"), 
     courseControllers.addLecture
 );
+router.post("/:id/assignment", 
+    userControllers.protectRoutes, 
+    upload.single("file"),
+    courseControllers.addAssignment   
+);
+
 
 router.post("/:id/request", userControllers.protectRoutes, courseControllers.requestEnrollment);
 

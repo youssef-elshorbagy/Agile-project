@@ -1,4 +1,5 @@
 const { sql } = require("../config/db");
+const pathLib = require('path');
 
 const createCourse = async (req, res) => {
   try {
@@ -33,11 +34,22 @@ const getAllCourses = async (req, res) => {
 
     // 2. Loop to get students (Enrollments)
     for (let course of courses) {
-        const pendingRes = await sql.query`
-            SELECT U.id, U.fullName, U.email FROM Enrollments E
-            JOIN Users U ON E.studentId = U.id
-            WHERE E.courseId = ${course.id} AND E.status = 'pending'
-        `;
+        // If requester is an advisor, only return pending students assigned to that advisor
+        let pendingRes;
+        if (req.user && req.user.isAdvisor) {
+            pendingRes = await sql.query`
+                SELECT U.id, U.fullName, U.email FROM Enrollments E
+                JOIN Users U ON E.studentId = U.id
+                JOIN StudentAdvisors SA ON SA.studentId = U.id
+                WHERE E.courseId = ${course.id} AND E.status = 'pending' AND SA.advisorId = ${req.user.id}
+            `;
+        } else {
+            pendingRes = await sql.query`
+                SELECT U.id, U.fullName, U.email FROM Enrollments E
+                JOIN Users U ON E.studentId = U.id
+                WHERE E.courseId = ${course.id} AND E.status = 'pending'
+            `;
+        }
         course.studentsPending = pendingRes.recordset;
 
         const enrolledRes = await sql.query`
@@ -82,8 +94,8 @@ const manageEnrollment = async (req, res) => {
     try {
         const { courseId, studentId, action } = req.body; 
 
-        // 🔒 SECURITY: Only Advisors can accept/reject
-        if (req.user.role !== 'advisor') {
+        // 🔒 SECURITY: Only Advisors (flagged) can accept/reject
+        if (!req.user || !req.user.isAdvisor) {
             return res.status(403).json({ status: "fail", message: "Access Denied: Only Advisors can manage requests." });
         }
         
@@ -139,10 +151,35 @@ const getCourseDetails = async (req, res) => {
         course.announcements = annRes.recordset;
 
         const lecRes = await sql.query`SELECT * FROM Lectures WHERE courseId = ${courseId} ORDER BY createdAt DESC`;
-        course.lectures = lecRes.recordset.map(l => ({
-            title: l.title,
-            link: `${req.protocol}://${req.get('host')}/uploads/${l.fileName}`
-        }));
+        course.lectures = lecRes.recordset.map(l => {
+            const fileName = l.fileName || (l.filePath ? pathLib.basename(l.filePath) : null);
+            return {
+                id: l.id,
+                title: l.title,
+                link: fileName ? `${req.protocol}://${req.get('host')}/uploads/${fileName}` : null,
+                fileName: fileName,
+                filePath: l.filePath,
+                createdAt: l.createdAt
+            };
+        });
+
+
+        const assignRes = await sql.query` SELECT * FROM Assignments WHERE courseId = ${courseId} ORDER BY deadline ASC`;
+        course.assignments = assignRes.recordset.map(a => {
+            const fileName = a.fileName || (a.filePath ? pathLib.basename(a.filePath) : null);
+            return {
+                id: a.id,
+                courseId: a.courseId,
+                title: a.title,
+                description: a.description,
+                deadline: a.deadline,
+                fileName: fileName,
+                filePath: a.filePath,
+                link: fileName ? `${req.protocol}://${req.get('host')}/uploads/${fileName}` : null,
+                createdAt: a.createdAt
+            };
+        });
+
 
         res.status(200).json({ status: "success", data: { course } });
     } catch (error) {
@@ -176,8 +213,42 @@ const addLecture = async (req, res) => {
         res.status(400).json({ status: "fail", message: error.message });
     }
 };
+const addAssignment = async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
+
+        const { title, description, deadline } = req.body;
+
+        if (!title || !deadline) {
+            return res.status(400).json({ status: "fail", message: "Title and deadline are required" });
+        }
+
+        const parsedDeadline = new Date(deadline);
+        if (isNaN(parsedDeadline)) {
+            return res.status(400).json({ status: "fail", message: "Invalid deadline format" });
+        }
+
+        const sqlDeadline = parsedDeadline.toISOString().slice(0, 19).replace('T', ' ');
+
+        const cleanDescription = description === '' || description === 'null' ? null : description;
+
+        await sql.query`
+            INSERT INTO Assignments (courseId, title, description, deadline, fileName, filePath)
+            VALUES (${req.params.id}, ${title}, ${cleanDescription}, ${sqlDeadline}, ${req.file.filename}, ${req.file.path})
+        `;
+
+        res.status(201).json({ status: "success", message: "Assignment uploaded" });
+
+    } catch (error) {
+        console.error(error);
+        res.status(400).json({ status: "fail", message: error.message });
+    }
+};
+
 
 module.exports = { 
     createCourse, getAllCourses, requestEnrollment, manageEnrollment, getMyCourses,
-    getCourseDetails, addAnnouncement, addLecture
+    getCourseDetails, addAnnouncement, addLecture, addAssignment
 };
+
+// Note: deleteAssignment removed to disable assignment deletion via API

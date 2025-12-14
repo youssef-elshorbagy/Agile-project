@@ -247,6 +247,31 @@ body {
     transform: translateY(-2px);
 }
 
+/* Approve / Reject rounded pill buttons (used on teacher dashboard) */
+.approve-btn, .reject-btn {
+    padding: 8px 14px;
+    background: #6c5ce7;
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(108,92,231,0.16);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    margin-right: 8px;
+}
+.approve-btn:hover, .reject-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(108,92,231,0.22);
+    opacity: 0.98;
+}
+.approve-btn:active, .reject-btn:active {
+    transform: translateY(0);
+}
+.approve-btn:focus, .reject-btn:focus {
+    outline: 3px solid rgba(108,92,231,0.18);
+}
+
 .users-section {
     background: white;
     border-radius: 10px;

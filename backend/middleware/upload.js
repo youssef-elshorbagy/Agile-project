@@ -10,9 +10,10 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, "../uploads")); 
   },
   filename: function (req, file, cb) {
-    // Save as: lecture-TIMESTAMP.pdf
+    // FIX: Define filePrefix before using it
+    const filePrefix = path.parse(file.originalname).name; // Extract filename without extension
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, "lecture-" + uniqueSuffix + path.extname(file.originalname));
+    cb(null, filePrefix + "-" + uniqueSuffix + path.extname(file.originalname));
   }
 });
 

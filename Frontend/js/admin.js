@@ -9,6 +9,20 @@ document.addEventListener('DOMContentLoaded', () => {
         loadInstructors(); 
         loadCourses();     
     }
+    // show advisor checkbox only when Role is 'teacher'
+    const roleSelect = document.getElementById('userRole');
+    const advisorToggle = document.getElementById('advisorToggle');
+    if (roleSelect && advisorToggle) {
+        function updateAdvisorToggle() {
+            advisorToggle.style.display = roleSelect.value === 'teacher' ? 'flex' : 'none';
+            const capacityInput = document.getElementById('advisorCapacityGroup');
+            if (capacityInput) capacityInput.style.display = (roleSelect.value === 'teacher' && document.getElementById('makeAdvisorCheckbox').checked) ? 'block' : 'none';
+        }
+        roleSelect.addEventListener('change', updateAdvisorToggle);
+        const makeAdvCheckbox = document.getElementById('makeAdvisorCheckbox');
+        if (makeAdvCheckbox) makeAdvCheckbox.addEventListener('change', updateAdvisorToggle);
+        updateAdvisorToggle();
+    }
 });
 
 // Navigation
@@ -50,10 +64,15 @@ async function loadUsers() {
                         <td><strong>${u.universityId}</strong></td>
 
                         <td>${u.email}</td>
-                        <td><span class="role-badge role-${u.role}">${u.role}</span></td>
+                        <td>
+                          <span class="role-badge role-${u.role}">${u.role}</span>
+                          ${u.isAdvisor ? '<span class="role-badge role-advisor">advisor</span>' : ''}
+                        </td>
                         <td>${u.fullName}</td>
+                        <!-- Action column removed -->
                     </tr>`;
             });
+            // attachAssignAdvisorHandlers removed — assignment feature disabled
         }
     } catch (err) { console.error(err); }
 }
@@ -66,6 +85,8 @@ async function addUser(e) {
     const password = document.getElementById('userPassword').value;
     const role = document.getElementById('userRole').value;
     const fullName = document.getElementById('userName').value;
+    const isAdvisor = document.getElementById('makeAdvisorCheckbox') ? document.getElementById('makeAdvisorCheckbox').checked : false;
+    const advisorCapacity = document.getElementById('advisorCapacity') ? document.getElementById('advisorCapacity').value : undefined;
 
     const errorDiv = document.getElementById('addUserError');
     const successDiv = document.getElementById('addUserSuccess');
@@ -77,7 +98,7 @@ async function addUser(e) {
                 'Content-Type': 'application/json', 
                 'Authorization': `Bearer ${session.token}` 
             },
-            body: JSON.stringify({ universityId, email, password, role, fullName })
+            body: JSON.stringify({ universityId, email, password, role, fullName, isAdvisor, advisorCapacity })
         });
 
         const result = await response.json();
@@ -224,4 +245,33 @@ async function handleRequest(courseId, studentId, action) {
             alert(result.message);
         }
     } catch(err) { console.error(err); }
+}
+
+async function assignAdvisorPrompt(studentId) {
+    try {
+        console.log('assignAdvisorPrompt called for studentId', studentId);
+        const resp = await fetch(`${API_URL}/advisors`, { headers: { 'Authorization': `Bearer ${session.token}` } });
+        const data = await resp.json();
+        if (!resp.ok) return alert('Failed to load advisors: ' + data.message);
+
+        let advisors = data.data.advisors || [];
+        // If /advisors returned none, fallback to /users and filter teacher users with isAdvisor flag
+        if (!advisors || advisors.length === 0) {
+            try {
+                const usersResp = await fetch(`${API_URL}/users?limit=100`, { headers: { 'Authorization': `Bearer ${session.token}` } });
+                const usersData = await usersResp.json();
+                if (usersResp.ok) {
+                    advisors = (usersData.data.users || []).filter(u => u.role === 'teacher' && u.isAdvisor === true).map(u => ({ id: u.id, fullName: u.fullName, email: u.email, capacity: u.capacity || null, assignedCount: u.assignedCount || 0 }));
+                }
+            } catch (e) {
+                console.error('fallback /users for advisors failed', e);
+            }
+        }
+
+        // assignment feature removed
+        return alert('Advisor assignment feature has been disabled.');
+    } catch (err) {
+        console.error(err);
+        alert('Error assigning advisor');
+    }
 }

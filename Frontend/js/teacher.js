@@ -10,6 +10,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('teacherId').textContent = session.user.universityId;
 
         loadTeacherCourses();
+        // If this teacher is also an advisor, load advisor requests
+        if (session.user.isAdvisor) {
+            injectAdvisorSection();
+            loadAdvisorRequests();
+        }
     }
 });
 
@@ -73,5 +78,121 @@ async function loadTeacherCourses() {
         }
     } catch (err) { 
         console.error("Error loading courses:", err); 
+    }
+}
+
+// Injects a simple Advisor Requests section into the dashboard
+function injectAdvisorSection() {
+    const dashboard = document.getElementById('view-dashboard');
+    if (!dashboard) return;
+
+    const container = document.createElement('div');
+    container.id = 'advisorRequestsSection';
+    container.className = 'users-section';
+    container.innerHTML = `
+        <h2>Pending Course Requests (Advisor)</h2>
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Course Requested</th>
+                        <th>Student Name</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="advisorRequestsTableBody">
+                    <tr><td colspan="3">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // insert before assignments-section if present
+    const assignments = dashboard.querySelector('.assignments-section');
+    if (assignments) dashboard.insertBefore(container, assignments);
+    else dashboard.appendChild(container);
+}
+
+// Load pending requests for all courses and render them for the advisor
+async function loadAdvisorRequests() {
+    const tbody = document.getElementById('advisorRequestsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="3">Loading...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_URL}/courses`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const result = await response.json();
+
+        if (!response.ok) {
+            tbody.innerHTML = `<tr><td colspan="3">Error: ${result.message || 'Failed to load'}</td></tr>`;
+            return;
+        }
+
+        const courses = result.data?.courses || [];
+        const rows = [];
+
+        courses.forEach(c => {
+            (c.studentsPending || []).forEach(s => {
+                rows.push({ courseId: c.id, courseName: c.name || c.Name || c.code, studentId: s.id, studentName: s.fullName });
+            });
+        });
+
+        if (rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3">No pending requests.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = '';
+        rows.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${r.courseName}</td>
+                <td>${r.studentName}</td>
+                <td>
+                    <button class="approve-btn">Approve</button>
+                    <button class="reject-btn">Reject</button>
+                </td>
+            `;
+
+            const approveBtn = tr.querySelector('.approve-btn');
+            const rejectBtn = tr.querySelector('.reject-btn');
+
+            approveBtn.addEventListener('click', () => handleRequest(r.courseId, r.studentId, 'approve'));
+            rejectBtn.addEventListener('click', () => handleRequest(r.courseId, r.studentId, 'reject'));
+
+            tbody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error('Error loading advisor requests:', err);
+        tbody.innerHTML = `<tr><td colspan="3">Error loading requests</td></tr>`;
+    }
+}
+
+// Sends approve/reject action to backend and refreshes lists
+async function handleRequest(courseId, studentId, action) {
+    try {
+        const response = await fetch(`${API_URL}/courses/manage-request`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}`
+            },
+            body: JSON.stringify({ courseId, studentId, action })
+        });
+
+        const result = await response.json();
+        if (response.ok) {
+            // refresh both advisor requests and teacher courses
+            loadAdvisorRequests();
+            loadTeacherCourses();
+        } else {
+            alert(result.message || 'Action failed');
+        }
+    } catch (err) {
+        console.error('Error managing request:', err);
+        alert('Request failed');
     }
 }

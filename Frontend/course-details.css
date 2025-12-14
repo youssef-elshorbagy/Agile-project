@@ -186,3 +186,137 @@
     .lecture-link:hover {
         background: #6c5ce7;
     }
+
+.assignment-upload-card {
+    background: #ffffff;
+    border: 3px dashed #dfe6e9;
+    padding: 30px;
+    border-radius: 12px;
+    margin: 25px 0;
+    box-shadow: 0 5px 20px rgba(172, 171, 171, 0.05);
+}
+
+.assignment-upload-card h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #2d3436;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+
+
+/* FORM LAYOUT */
+
+.form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+
+
+/* INPUTS — EXACT MATCH */
+
+.input-field {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid #dfe6e9;
+    border-radius: 10px;
+    font-size: 15px;
+    background: #fafafa;
+    transition: 0.25s;
+}
+
+.input-field:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+    background: white;
+}
+
+
+
+/* FILE UPLOAD */
+
+.input-file-hidden {
+    display: none;
+}
+
+.file-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.file-upload-button {
+    background: #6c5ce7;
+    color: #efeff1;
+    border: 1px solid #dfe6e9;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.25s;
+}
+
+
+.file-name-display {
+    color: #636e72;
+    font-size: 14px;
+    flex-grow: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+
+
+/* SUBMIT BUTTON */
+
+.post-btn {
+    width: 140px;
+    padding: 12px 18px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.25s;
+}
+
+.post-btn:hover {
+    background: #5a6fd6;
+}
+
+/* Approve / Reject rounded pill buttons */
+.approve-btn, .reject-btn {
+    padding: 8px 14px;
+    background: #6c5ce7;
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(108,92,231,0.16);
+    transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+    margin-right: 8px;
+}
+.approve-btn:hover, .reject-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(108,92,231,0.22);
+    opacity: 0.98;
+}
+.approve-btn:active, .reject-btn:active {
+    transform: translateY(0);
+}
+.approve-btn:focus, .reject-btn:focus {
+    outline: 3px solid rgba(108,92,231,0.18);
+}

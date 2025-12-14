@@ -11,15 +11,25 @@ function requireAuth(requiredRole) {
 
     const user = JSON.parse(userString);
 
-    if (requiredRole && user.role !== requiredRole) {
-                
-        alert("Access Denied: You are not authorized to view this page.");
-        
-        if(user.role === 'admin') window.location.href = 'admin.html';
-        else if(user.role === 'teacher') window.location.href = 'teacher.html';
-        else window.location.href = 'student.html';
-        
-        return null;
+    if (requiredRole) {
+        // allow teachers who are also advisors (isAdvisor flag) to access teacher pages
+        if (requiredRole === 'teacher') {
+            if (!(user.role === 'teacher' || user.isAdvisor === true)) {
+                alert("Access Denied: You are not authorized to view this page.");
+                if(user.role === 'admin') window.location.href = 'admin.html';
+                else if(user.role === 'teacher') window.location.href = 'teacher.html';
+                else window.location.href = 'student.html';
+                return null;
+            }
+        } else {
+            if (user.role !== requiredRole) {
+                alert("Access Denied: You are not authorized to view this page.");
+                if(user.role === 'admin') window.location.href = 'admin.html';
+                else if(user.role === 'teacher') window.location.href = 'teacher.html';
+                else window.location.href = 'student.html';
+                return null;
+            }
+        }
     }
 
     return { token, user };

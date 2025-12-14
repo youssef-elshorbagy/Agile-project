@@ -37,7 +37,9 @@ function switchView(viewName, element) {
     document.getElementById('view-profile').style.display = 'none';
 
     document.getElementById(`view-${viewName}`).style.display = 'block';
-
+   const assignmentFormEl = document.getElementById('assignmentForm');
+    if (assignmentFormEl) assignmentFormEl.style.display = 'block';
+    
     const links = document.querySelectorAll('.nav-link');
     links.forEach(link => link.classList.remove('active'));
 

@@ -8,6 +8,7 @@ const { connectToDB, sql } = require("./config/db");
 
 const userRoutes = require("./routes/auth");
 const courseRoutes = require("./routes/courses");
+const advisorRoutes = require("./routes/advisors");
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/users", userRoutes);
 app.use("/courses", courseRoutes);
+app.use("/advisors", advisorRoutes);
 
 const PORT = 3000;
 

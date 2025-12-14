@@ -51,6 +51,41 @@
 
                 <div id="lecturesList"></div>
             </div>
+<hr class="section-divider">
+
+<div class="content-block">
+    <div class="section-title">
+        <h2>📝 Assignments</h2>
+    </div>
+
+    <div id="assignmentForm" class="teacher-controls">
+        <h4>Post New Assignment</h4>
+        <div class="form-group">
+            <label for="assTitle">Assignment Title</label>
+            <input type="text" id="assTitle" placeholder="e.g., Midterm Project" class="mini-input">
+        </div>
+        
+        <div class="form-group">
+            <label for="assDesc">Description (Optional)</label>
+            <textarea id="assDesc" placeholder="Assignment details..." class="mini-input" rows="3"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="assDeadline">Deadline</label>
+            <input type="datetime-local" id="assDeadline" class="mini-input">
+        </div>
+        
+        <div class="form-group">
+            <label for="assFile">Upload Instructions PDF (Optional)</label>
+            <input type="file" id="assFile" accept="application/pdf" class="mini-input">
+            
+        </div>
+        
+        <button onclick="postAssignment()" class="mini-btn">Create Assignment</button>
+    </div>
+
+    <div id="assignmentsList"></div>
+</div>
 
         </div>
 
