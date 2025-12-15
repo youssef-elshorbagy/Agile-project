@@ -743,3 +743,55 @@ body {
     box-shadow: 0 10px 20px rgba(108, 92, 231, 0.3);
 }
 
+/* Fix the invisible header text */
+.content-block h2 {
+    color: white; /* Makes "Recent Assignments" white */
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+}
+
+/* Container for the assignments */
+#dashboardAssignments {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Adds space between cards */
+    max-width: 1200px; /* Keeps it aligned with the box above */
+    margin: 0 auto; /* Centers it */
+}
+
+/* Individual Assignment Cards */
+.assignment-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-left-width: 6px !important; /* Forces the color strip to be thicker */
+}
+
+/* Hover Effect: Card lifts up slightly */
+.assignment-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Typography inside the card */
+.assignment-card h4 {
+    margin: 0 0 5px 0;
+    color: #333;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.assignment-card small {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Status text alignment */
+.assignment-status {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}

@@ -1,4 +1,4 @@
-/*USE UMS_DB;
+USE UMS_DB;
 
 -- 1. Users Table
 CREATE TABLE Users (
@@ -49,7 +49,7 @@ CREATE TABLE Lectures (
     filePath NVARCHAR(255),
     createdAt DATETIME DEFAULT GETDATE()
 );
-*/
+
 
 USE UMS_DB;
 GO
