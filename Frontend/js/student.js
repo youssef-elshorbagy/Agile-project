@@ -151,3 +151,106 @@ async function requestCourse(courseId) {
         }
     } catch (err) { console.error(err); }
 }
+
+// 1. Add this line inside your existing DOMContentLoaded event
+document.addEventListener('DOMContentLoaded', () => {
+    if(session) {
+        // ... existing code ...
+        loadMyCourses();
+        loadDashboardAssignments(); // <--- ADD THIS LINE
+    }
+});
+
+// 2. Add this entire function to the bottom of the file
+async function loadDashboardAssignments() {
+    const container = document.getElementById('dashboardAssignments');
+    if(!container) return;
+
+    try {
+        const response = await fetch(`${API_URL}/courses/my-assignments`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+            const assignments = result.data;
+
+            if (assignments.length === 0) {
+                container.innerHTML = '<p style="color:#666;">No pending assignments. Good job!</p>';
+                return;
+            }
+
+            container.innerHTML = ''; // Clear loading text
+
+            assignments.forEach(ass => {
+                // --- TIME LOGIC ---
+                const now = new Date();
+                const deadline = new Date(ass.Deadline);
+                const diffMs = deadline - now;
+                
+                // Calculate Status
+                let timeString = "";
+                let statusColor = "#666"; // Default gray
+                let statusText = "";
+
+                if (ass.Grade !== null) {
+                    // CASE 1: Graded
+                    statusText = `✅ Graded: ${ass.Grade}/100`;
+                    statusColor = "#2ed573"; // Green
+                    timeString = "Completed";
+                } else if (ass.SubmissionID) {
+                    // CASE 2: Submitted but not graded
+                    statusText = "⏳ Submitted (Pending Grade)";
+                    statusColor = "#ffa502"; // Orange
+                    timeString = "Done";
+                } else if (diffMs < 0) {
+                    // CASE 3: Overdue
+                    statusText = "❌ Overdue";
+                    statusColor = "#ff4757"; // Red
+                    timeString = getTimeRemainingString(diffMs); // Will return "X days ago"
+                } else {
+                    // CASE 4: Pending
+                    statusText = "📝 To Do";
+                    statusColor = "#3742fa"; // Blue
+                    timeString = getTimeRemainingString(diffMs); // Will return "X days left"
+                }
+
+                // Render Card
+                const card = document.createElement('div');
+                card.className = 'assignment-card'; // Make sure to style this in CSS
+                card.style.cssText = "background:white; padding:15px; margin-bottom:10px; border-radius:8px; border-left: 5px solid " + statusColor + "; box-shadow: 0 2px 5px rgba(0,0,0,0.05);";
+                
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <h4 style="margin:0; font-size:16px;">${ass.Title}</h4>
+                            <small style="color:#666;">${ass.CourseCode} - ${ass.CourseName}</small>
+                        </div>
+                        <div style="text-align:right;">
+                            <strong style="display:block; color:${statusColor}">${statusText}</strong>
+                            <span style="font-size:12px; color:#888;">${timeString}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+    } catch (err) {
+        console.error("Error loading dashboard assignments:", err);
+    }
+}
+
+// Helper function to make time readable
+function getTimeRemainingString(diffMs) {
+    const isOverdue = diffMs < 0;
+    const absMs = Math.abs(diffMs);
+    
+    const days = Math.floor(absMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((absMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    let text = "";
+    if (days > 0) text = `${days}d ${hours}h`;
+    else text = `${hours} hours`;
+
+    return isOverdue ? `${text} overdue` : `${text} remaining`;
+}

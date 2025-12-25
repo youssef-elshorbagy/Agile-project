@@ -19,6 +19,7 @@
         <div class="navbar">
             <a class="nav-link active" onclick="switchView('users', this)">Manage Users</a>
             <a class="nav-link" onclick="switchView('courses', this)">Register Courses</a>
+            <a href="#" class="nav-link" onclick="loadParentStudentManagement()">Parent-Student Links</a>
         </div>
 
         <div class="dashboard-content">
@@ -66,6 +67,7 @@
                                     <option value="student">Student</option>
                                     <option value="teacher">Teacher</option>
                                     <option value="admin">Admin</option>
+                                    <option value="parent">Parent</option>
                                 </select>
                             </div>
                             <div class="form-group" id="advisorToggle" style="display: none; align-items: center;">
@@ -168,6 +170,14 @@
                         </table>
                     </div>
                 </div>
+            </div>
+
+            <div id="view-staff" style="display: none;">
+                <div class="content-header">
+   
+               
+
+               
             </div>
 
         </div>

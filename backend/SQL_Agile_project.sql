@@ -21,7 +21,7 @@ CREATE TABLE Courses (
     instructorId INT FOREIGN KEY REFERENCES Users(id)
 );
 
--- 3. Enrollments (Linking Students to Courses)
+-- 3. Enrollments (Linking Students to Courses  )
 CREATE TABLE Enrollments (
     studentId INT FOREIGN KEY REFERENCES Users(id),
     courseId INT FOREIGN KEY REFERENCES Courses(id),

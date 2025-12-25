@@ -26,6 +26,8 @@ function requireAuth(requiredRole) {
                 alert("Access Denied: You are not authorized to view this page.");
                 if(user.role === 'admin') window.location.href = 'admin.html';
                 else if(user.role === 'teacher') window.location.href = 'teacher.html';
+                else if(user.role === 'parent') window.location.href = 'parent.html';
+                else if(user.role === 'ta') window.location.href = 'ta.html';
                 else window.location.href = 'student.html';
                 return null;
             }

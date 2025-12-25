@@ -49,6 +49,8 @@ function redirectUser(user) {
         window.location.href = 'teacher.html';
     } else if (user.role === 'teacher') {
         window.location.href = 'teacher.html';
+    } else if (user.role === 'parent') {
+        window.location.href = 'parent.html';
     } else {
         window.location.href = 'student.html';
     }

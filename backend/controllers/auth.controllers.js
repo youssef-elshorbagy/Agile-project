@@ -10,7 +10,7 @@ const signup = async (req, res) => {
     if (password.length < 8) return res.status(400).json({ status: "fail", message: "Password must be at least 8 characters" });
     if (!/^[A-Z]/.test(password)) return res.status(400).json({ status: "fail", message: "Password must start with a Capital Letter" });
     // Validate role (advisor is assigned via isAdvisor flag on teacher)
-    if (!role || !['student', 'teacher', 'admin'].includes(role)) {
+    if (!role || !['student', 'teacher', 'admin', 'parent'].includes(role)) {
       return res.status(400).json({ status: "fail", message: "Invalid Role" });
     }
 
@@ -32,6 +32,7 @@ const signup = async (req, res) => {
         INSERT INTO Users (universityId, fullName, email, password, role, gpa, level)
         VALUES (${universityId}, ${fullName}, ${email}, ${hashedPassword}, ${role}, ${gpa}, ${level})
     `;
+  
 
     // 5. Get the new user to return
     const newUserResult = await sql.query`SELECT * FROM Users WHERE email = ${email}`;
@@ -139,4 +140,93 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { signup, getAllUsers, login, protectRoutes, getProfile, updateProfile };
+const getStudentPerformance = async (req, res) => {
+  try {
+    const studentId = req.user.id; // Use authenticated user's ID
+    const result = await sql.query`
+      SELECT C.id, C.name, C.code, C.creditHours
+      FROM Courses C
+      JOIN Enrollments E ON C.id = E.courseId
+      WHERE E.studentId = ${studentId} AND E.status = 'enrolled'
+    `;
+    res.status(200).json({ status: 'success', data: { courses: result.recordset } });
+  } catch (error) {
+    console.error('Error fetching student performance:', error);
+    res.status(500).json({ status: 'fail', message: error.message });
+  }
+};
+
+const getStudentCourses = async (req, res) => {
+  try {
+    const studentId = req.params.id || req.user.id;
+    const result = await sql.query`
+      SELECT 
+        C.id, C.name, C.code, C.creditHours,
+        E.status as enrollmentStatus,
+        E.enrolledAt
+      FROM Courses C
+      JOIN Enrollments E ON C.id = E.courseId
+      WHERE E.studentId = ${studentId} AND E.status = 'enrolled'
+      ORDER BY C.code
+    `;
+    res.status(200).json({ status: 'success', data: { courses: result.recordset } });
+  } catch (error) {
+    console.error('Error fetching student courses:', error);
+    res.status(500).json({ status: 'fail', message: error.message });
+  }
+};
+
+const getStudentGrades = async (req, res) => {
+  try {
+    const { studentId, courseId } = req.params;
+    
+    // Verify access if parent
+    if (req.user.role === 'parent') {
+      const accessCheck = await sql.query`
+        SELECT * FROM parent_student 
+        WHERE parent_id = ${req.user.id} AND student_id = ${studentId}
+      `;
+      if (accessCheck.recordset.length === 0) {
+        return res.status(403).json({ 
+          status: "fail", 
+          message: "You don't have access to this student's data" 
+        });
+      }
+    }
+    
+    // Get grades for the student in the course
+    const result = await sql.query`
+      SELECT 
+        A.id as assignmentId,
+        A.title,
+        A.maxScore,
+        S.score,
+        S.submittedAt,
+        S.status
+      FROM Assignments A
+      LEFT JOIN Submissions S ON A.id = S.assignmentId AND S.studentId = ${studentId}
+      WHERE A.courseId = ${courseId}
+      ORDER BY A.createdAt DESC
+    `;
+    
+    res.status(200).json({ 
+      status: 'success', 
+      data: { grades: result.recordset } 
+    });
+  } catch (error) {
+    console.error('Error fetching student grades:', error);
+    res.status(500).json({ status: 'fail', message: error.message });
+  }
+};
+module.exports = {
+  signup,
+  login,    
+  protectRoutes,
+  getAllUsers,
+  getProfile,
+  updateProfile,
+  getStudentPerformance,
+  getStudentCourses,
+  getStudentGrades
+};
+

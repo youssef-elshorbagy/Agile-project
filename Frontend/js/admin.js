@@ -30,6 +30,7 @@ function switchView(viewName, element) {
     document.getElementById('view-users').style.display = 'none';
     document.getElementById('view-courses').style.display = 'none';
     document.getElementById('view-enrollments').style.display = 'none';
+    document.getElementById('view-staff').style.display = 'none';
 
     document.getElementById(`view-${viewName}`).style.display = 'block';
 
@@ -39,6 +40,8 @@ function switchView(viewName, element) {
 
     if (viewName === 'courses') {
         loadInstructors();
+    } else if (viewName === 'staff') {
+        loadStaffDirectory();
     }
 }
 
@@ -273,5 +276,207 @@ async function assignAdvisorPrompt(studentId) {
     } catch (err) {
         console.error(err);
         alert('Error assigning advisor');
+    }
+}
+// ============================================================================
+// PARENT-STUDENT MANAGEMENT SECTION
+// Copy everything below and paste at the BOTTOM of your admin.js file
+// ============================================================================
+
+function loadParentStudentManagement() {
+    const container = document.querySelector('.main-content');
+    container.innerHTML = `
+        <div class="content-header">
+            <h2>Parent-Student Management</h2>
+            <p class="subtitle">Link parents to their children's accounts</p>
+        </div>
+        <div class="loading">Loading...</div>
+    `;
+
+    fetchParentsAndStudents();
+}
+
+async function fetchParentsAndStudents() {
+    try {
+        const res = await fetch(`${API_URL}/admin/parents-students`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+
+        if (!res.ok) throw new Error('Failed to load data');
+
+        const result = await res.json();
+        const { parents, students, links } = result.data;
+
+        renderParentStudentManagement(parents, students, links);
+    } catch (err) {
+        console.error('Error:', err);
+        document.querySelector('.main-content').innerHTML = `
+            <div class="error-state">
+                <p>Error loading data: ${err.message}</p>
+            </div>
+        `;
+    }
+}
+
+function renderParentStudentManagement(parents, students, links) {
+    const container = document.querySelector('.main-content');
+    
+    let html = `
+        <div class="content-header">
+            <h2>Parent-Student Management</h2>
+            <button class="btn btn-primary" onclick="showLinkForm()">+ Link Parent to Student</button>
+        </div>
+
+        <div id="linkForm" class="link-form-card" style="display: none;">
+            <h3>Link Parent to Student</h3>
+            <form onsubmit="handleLinkParentStudent(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="parentSelect">Select Parent:</label>
+                        <select id="parentSelect" required>
+                            <option value="">-- Select Parent --</option>
+                            ${parents.map(p => `
+                                <option value="${p.id}">
+                                    ${p.fullName} (${p.universityId}) - ${p.email}
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="studentSelect">Select Student:</label>
+                        <select id="studentSelect" required>
+                            <option value="">-- Select Student --</option>
+                            ${students.map(s => `
+                                <option value="${s.id}">
+                                    ${s.fullName} (${s.universityId}) - Level ${s.level || 1}
+                                </option>
+                            `).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Link</button>
+                    <button type="button" class="btn btn-secondary" onclick="hideLinkForm()">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="links-section">
+            <h3>Existing Links (${links.length})</h3>
+    `;
+
+    if (links.length === 0) {
+        html += `
+            <div class="empty-state">
+                <p>No parent-student links found</p>
+                <p class="text-muted">Click "Link Parent to Student" to create a link</p>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="links-table-container">
+                <table class="links-table">
+                    <thead>
+                        <tr>
+                            <th>Parent Name</th>
+                            <th>Student Name</th>
+                            <th>Student ID</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${links.map(link => `
+                            <tr>
+                                <td>${link.parentName}</td>
+                                <td>${link.studentName}</td>
+                                <td>${link.studentUniversityId}</td>
+                                <td>
+                                    <button class="btn-danger-small" onclick="handleUnlink(${link.linkId}, '${link.parentName}', '${link.studentName}')">
+                                        Unlink
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function showLinkForm() {
+    document.getElementById('linkForm').style.display = 'block';
+    document.getElementById('linkForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function hideLinkForm() {
+    document.getElementById('linkForm').style.display = 'none';
+    document.getElementById('parentSelect').value = '';
+    document.getElementById('studentSelect').value = '';
+}
+
+async function handleLinkParentStudent(event) {
+    event.preventDefault();
+    
+    const parentId = parseInt(document.getElementById('parentSelect').value);
+    const studentId = parseInt(document.getElementById('studentSelect').value);
+
+    if (!parentId || !studentId) {
+        alert('Please select both parent and student');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/admin/link-parent-student`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ parentId, studentId })
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            alert('Parent linked to student successfully!');
+            hideLinkForm();
+            fetchParentsAndStudents();
+        } else {
+            alert(result.message || 'Failed to link parent to student');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error linking parent to student');
+    }
+}
+
+async function handleUnlink(linkId, parentName, studentName) {
+    if (!confirm(`Are you sure you want to unlink ${parentName} from ${studentName}?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/admin/unlink-parent-student/${linkId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        const result = await res.json();
+
+        if (res.ok) {
+            alert('Parent unlinked successfully!');
+            fetchParentsAndStudents();
+        } else {
+            alert(result.message || 'Failed to unlink');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Error unlinking parent from student');
     }
 }
