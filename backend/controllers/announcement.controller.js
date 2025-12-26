@@ -1,9 +1,9 @@
 const { sql } = require("../config/db");
 
-// Get announcements for parents - shows global announcements and course-specific ones for their children
+// Get announcements for parents
 const getAnnouncementsForParent = async (req, res) => {
   try {
-    if (req.user.role !== 'parent') {
+    if ((req.user.role || '').toLowerCase() !== 'parent') {
       return res.status(403).json({ status: "fail", message: "Parents only" });
     }
 
@@ -20,7 +20,6 @@ const getAnnouncementsForParent = async (req, res) => {
 
     let announcements = [];
 
-    // Get global announcements (isGlobal = 1)
     const globalResult = await sql.query`
       SELECT 
         A.id, A.courseId, A.teacherName, A.content, A.createdAt, A.isGlobal,
@@ -33,9 +32,7 @@ const getAnnouncementsForParent = async (req, res) => {
 
     announcements = globalResult.recordset;
 
-    // Get course-specific announcements for children's courses
     if (courseIds.length > 0) {
-      // Use a loop to get announcements for each course (safer than IN clause with array)
       for (const courseId of courseIds) {
         const courseAnnouncementsResult = await sql.query`
           SELECT 
@@ -48,20 +45,15 @@ const getAnnouncementsForParent = async (req, res) => {
         `;
         announcements = [...announcements, ...courseAnnouncementsResult.recordset];
       }
-      // Remove duplicates in case of any overlap
       const uniqueAnnouncements = announcements.filter((a, index, self) => 
         index === self.findIndex((b) => b.id === a.id)
       );
       announcements = uniqueAnnouncements;
     }
 
-    // Sort by date descending
     announcements.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    res.status(200).json({ 
-      status: "success", 
-      data: { announcements } 
-    });
+    res.status(200).json({ status: "success", data: { announcements } });
 
   } catch (error) {
     console.error('Error fetching announcements:', error);
@@ -69,13 +61,13 @@ const getAnnouncementsForParent = async (req, res) => {
   }
 };
 
-// Get all announcements (for students/teachers)
+// Get all announcements (Generic)
 const getAllAnnouncements = async (req, res) => {
   try {
     let announcements = [];
+    const userRole = (req.user.role || '').toLowerCase();
 
-    if (req.user.role === 'student') {
-      // Students see global announcements + their enrolled courses
+    if (userRole === 'student') {
       const coursesResult = await sql.query`
         SELECT DISTINCT courseId FROM Enrollments 
         WHERE studentId = ${req.user.id} AND status = 'enrolled'
@@ -84,7 +76,6 @@ const getAllAnnouncements = async (req, res) => {
       const courseIds = coursesResult.recordset.map(c => c.courseId);
       
       if (courseIds.length > 0) {
-        // Get global announcements
         const globalResult = await sql.query`
           SELECT 
             A.id, A.courseId, A.teacherName, A.content, A.createdAt, A.isGlobal,
@@ -96,7 +87,6 @@ const getAllAnnouncements = async (req, res) => {
         `;
         announcements = globalResult.recordset;
         
-        // Get course-specific announcements
         for (const courseId of courseIds) {
           const courseResult = await sql.query`
             SELECT 
@@ -110,13 +100,11 @@ const getAllAnnouncements = async (req, res) => {
           announcements = [...announcements, ...courseResult.recordset];
         }
         
-        // Remove duplicates and sort
         const uniqueAnnouncements = announcements.filter((a, index, self) => 
           index === self.findIndex((b) => b.id === a.id)
         );
         announcements = uniqueAnnouncements.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       } else {
-        // Only global announcements
         const result = await sql.query`
           SELECT 
             A.id, A.courseId, A.teacherName, A.content, A.createdAt, A.isGlobal,
@@ -129,8 +117,7 @@ const getAllAnnouncements = async (req, res) => {
         announcements = result.recordset;
       }
 
-    } else if (req.user.role === 'teacher' || req.user.role === 'ta') {
-      // Teachers/TAs see all announcements
+    } else if (userRole === 'teacher' || userRole === 'ta') {
       const result = await sql.query`
         SELECT 
           A.id, A.courseId, A.teacherName, A.content, A.createdAt, A.isGlobal,
@@ -141,15 +128,11 @@ const getAllAnnouncements = async (req, res) => {
       `;
       announcements = result.recordset;
 
-    } else if (req.user.role === 'parent') {
-      // Redirect to parent-specific handler
+    } else if (userRole === 'parent') {
       return getAnnouncementsForParent(req, res);
     }
 
-    res.status(200).json({ 
-      status: "success", 
-      data: { announcements } 
-    });
+    res.status(200).json({ status: "success", data: { announcements } });
 
   } catch (error) {
     console.error('Error fetching announcements:', error);

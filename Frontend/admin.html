@@ -94,8 +94,7 @@
                                     <th>Email</th>
                                     <th>Role</th>
                                     <th>Name</th>
-                                    <!-- Action column removed -->
-                                </tr>
+                                    </tr>
                             </thead>
                             <tbody id="usersTableBody"></tbody>
                         </table>
@@ -132,6 +131,18 @@
                                 </select>
                             </div>
                         </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Level (Year)</label>
+                                <input type="number" id="courseLevel" min="1" max="5" placeholder="e.g. 4">
+                            </div>
+                            <div class="form-group">
+                                <label>Prerequisite (Optional)</label>
+                                <input type="text" id="coursePrereq" placeholder="Enter Course Code or ID">
+                            </div>
+                        </div>
+
                         <button type="submit" class="submit-button">Create Course</button>
                     </form>
                 </div>
@@ -145,6 +156,8 @@
                                     <th>Code</th>
                                     <th>Name</th>
                                     <th>Instructor</th>
+                                    <th>Credits</th>
+                                    <th>Level</th>
                                 </tr>
                             </thead>
                             <tbody id="coursesTableBody"></tbody>
@@ -174,9 +187,6 @@
 
             <div id="view-staff" style="display: none;">
                 <div class="content-header">
-   
-               
-
                
             </div>
 

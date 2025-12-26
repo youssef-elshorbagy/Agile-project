@@ -1,11 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('token');
     if (token) {
-        const user = JSON.parse(localStorage.getItem('user'));
-        redirectUser(user);
+        const userString = localStorage.getItem('user');
+        if (userString) {
+            const user = JSON.parse(userString);
+            redirectUser(user);
+        }
     }
 });
-
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -24,13 +26,18 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         const result = await response.json();
 
         if (response.ok) {
+            const userData = result.data.user;
+            
+            if (userData.gpa !== undefined) userData.gpa = parseFloat(userData.gpa || 0);
+            if (userData.level !== undefined) userData.level = parseInt(userData.level || 1);
+
             localStorage.setItem('token', result.token);
-            localStorage.setItem('user', JSON.stringify(result.data.user));
+            localStorage.setItem('user', JSON.stringify(userData));
             
             errorDiv.style.display = 'none';
             document.getElementById('loginForm').reset();
 
-            redirectUser(result.data.user);
+            redirectUser(userData);
         } else {
             throw new Error(result.message || 'Login failed');
         }
@@ -40,18 +47,23 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     }
 });
 
-// Redirect users to their correct dashboard
+
 function redirectUser(user) {
-    if (user.role === 'admin') {
+    if (!user || !user.role) return;
+
+    // Check for advisor status reconstructed by EAV pivot logic
+    const isAdvisor = user.isAdvisor === true || user.role === 'Advisor';
+
+    if (user.role === 'Admin') {
         window.location.href = 'admin.html';
-    } else if (user.isAdvisor === true) {
-        // advisors use the teacher dashboard
+    } else if (isAdvisor || user.role === 'Teacher') {
         window.location.href = 'teacher.html';
-    } else if (user.role === 'teacher') {
-        window.location.href = 'teacher.html';
-    } else if (user.role === 'parent') {
+    } else if (user.role === 'Parent') {
         window.location.href = 'parent.html';
+    } else if (user.role === 'Student') {
+        window.location.href = 'student.html';
     } else {
+        // Fallback for TA or unexpected roles
         window.location.href = 'student.html';
     }
 }

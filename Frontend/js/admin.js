@@ -1,4 +1,3 @@
-// Security Check
 const session = requireAuth('admin');
 
 // Load Data on Startup
@@ -9,14 +8,18 @@ document.addEventListener('DOMContentLoaded', () => {
         loadInstructors(); 
         loadCourses();     
     }
-    // show advisor checkbox only when Role is 'teacher'
+    // show advisor checkbox only when Role is 'Teacher'
     const roleSelect = document.getElementById('userRole');
     const advisorToggle = document.getElementById('advisorToggle');
     if (roleSelect && advisorToggle) {
         function updateAdvisorToggle() {
-            advisorToggle.style.display = roleSelect.value === 'teacher' ? 'flex' : 'none';
+            // EAV roles are typically capitalized: 'Teacher'
+            const isTeacherSelected = roleSelect.value.toLowerCase() === 'teacher';
+            advisorToggle.style.display = isTeacherSelected ? 'flex' : 'none';
             const capacityInput = document.getElementById('advisorCapacityGroup');
-            if (capacityInput) capacityInput.style.display = (roleSelect.value === 'teacher' && document.getElementById('makeAdvisorCheckbox').checked) ? 'block' : 'none';
+            if (capacityInput) {
+                capacityInput.style.display = (isTeacherSelected && document.getElementById('makeAdvisorCheckbox').checked) ? 'block' : 'none';
+            }
         }
         roleSelect.addEventListener('change', updateAdvisorToggle);
         const makeAdvCheckbox = document.getElementById('makeAdvisorCheckbox');
@@ -40,6 +43,7 @@ function switchView(viewName, element) {
 
     if (viewName === 'courses') {
         loadInstructors();
+        loadCourses();
     } else if (viewName === 'staff') {
         loadStaffDirectory();
     }
@@ -62,23 +66,24 @@ async function loadUsers() {
             tbody.innerHTML = '';
 
             users.forEach(u => {
+                // Ensure role casing matches database for CSS badges
+                const roleClass = (u.role || 'student').toLowerCase();
+                
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${u.universityId}</strong></td>
-
                         <td>${u.email}</td>
                         <td>
-                          <span class="role-badge role-${u.role}">${u.role}</span>
-                          ${u.isAdvisor ? '<span class="role-badge role-advisor">advisor</span>' : ''}
+                          <span class="role-badge role-${roleClass}">${u.role}</span>
+                          ${u.isAdvisor ? '<span class="role-badge role-advisor">Advisor</span>' : ''}
                         </td>
                         <td>${u.fullName}</td>
-                        <!-- Action column removed -->
                     </tr>`;
             });
-            // attachAssignAdvisorHandlers removed — assignment feature disabled
         }
     } catch (err) { console.error(err); }
 }
+
 
 async function addUser(e) {
     e.preventDefault();
@@ -136,8 +141,11 @@ function toggleAddUserForm() {
 }
 
 
+
 async function loadInstructors() {
     const select = document.getElementById('courseInstructor');
+    if (!select) return;
+
     try {
         const response = await fetch(`${API_URL}/users?limit=100`, {
             headers: { 'Authorization': `Bearer ${session.token}` }
@@ -145,7 +153,9 @@ async function loadInstructors() {
         const result = await response.json();
         
         if(response.ok) {
-            const teachers = result.data.users.filter(u => u.role === 'teacher');
+            const teachers = result.data.users.filter(u => 
+                u.role === 'Teacher' || u.role === 'teacher'
+            );
             
             select.innerHTML = '<option value="">Select a Teacher...</option>';
             
@@ -156,8 +166,13 @@ async function loadInstructors() {
                 select.appendChild(option);
             });
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+        console.error("Error loading instructors:", err); 
+        select.innerHTML = '<option value="">Error loading list</option>';
+    }
 }
+
+
 
 async function addCourse(e) {
     e.preventDefault();
@@ -166,6 +181,10 @@ async function addCourse(e) {
     const code = document.getElementById('courseCode').value;
     const creditHours = document.getElementById('courseCredits').value;
     const instructor = document.getElementById('courseInstructor').value;
+    
+    // Get EAV fields
+    const level = document.getElementById('courseLevel') ? document.getElementById('courseLevel').value : null;
+    const prerequisite = document.getElementById('coursePrereq') ? document.getElementById('coursePrereq').value : null;
 
     const errorDiv = document.getElementById('addCourseError');
     const successDiv = document.getElementById('addCourseSuccess');
@@ -177,7 +196,14 @@ async function addCourse(e) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.token}` 
             },
-            body: JSON.stringify({ name, code, creditHours, instructor })
+            body: JSON.stringify({ 
+                name, 
+                code, 
+                creditHours, 
+                instructor,
+                level,
+                prerequisite 
+            })
         });
 
         const result = await response.json();
@@ -215,15 +241,16 @@ async function loadCourses() {
            
 
             result.data.courses.forEach(c => {
+                // Displaying Credits and Level
                 tbody.innerHTML += `
                     <tr>
                         <td>${c.code}</td>
                         <td>${c.name}</td>
                         <td>${c.instructor ? c.instructor.fullName : 'Unknown'}</td>
+                        <td>${c.creditHours || '-'}</td>
+                        <td>${c.level || '-'}</td>
                     </tr>
                 `;
-                
-        
             });
         }
     } catch (err) { console.error(err); }

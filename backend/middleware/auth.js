@@ -1,7 +1,6 @@
 const jwt = require("jsonwebtoken");
 const { sql } = require("../config/db");
 
-// Middleware factory that returns a middleware function for a specific role
 const auth = (requiredRole) => {
   return async (req, res, next) => {
     try {
@@ -11,53 +10,57 @@ const auth = (requiredRole) => {
       }
       
       if (!token) {
-        return res.status(401).json({ 
-          status: "fail", 
-          message: "You are not logged in" 
-        });
+        return res.status(401).json({ status: "fail", message: "You are not logged in" });
       }
       
       const decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'secret');
       
+      // FIX: Use TOP 1 to handle users with multiple roles gracefully in the auth object
       const result = await sql.query`
-        SELECT U.*, 
-          CASE WHEN EXISTS(SELECT 1 FROM Advisors A WHERE A.userId = U.id) 
-            THEN 1 ELSE 0 END AS isAdvisor 
-        FROM Users U 
-        WHERE id = ${decodedToken.id}
+        SELECT TOP 1 
+            P.*, R.role_name as role,
+            CASE WHEN EXISTS(
+                SELECT 1 FROM PersonRoles PR2 
+                JOIN Roles R2 ON PR2.role_id = R2.role_id 
+                WHERE PR2.person_id = P.id AND R2.role_name = 'Advisor'
+            ) THEN 1 ELSE 0 END AS isAdvisor
+        FROM People P 
+        LEFT JOIN PersonRoles PR ON P.id = PR.person_id
+        LEFT JOIN Roles R ON PR.role_id = R.role_id
+        WHERE P.id = ${decodedToken.id}
       `;
       
       const currentUser = result.recordset[0];
+      if (!currentUser) return res.status(401).json({ status: "fail", message: "User no longer exists" });
       
-      if (!currentUser) {
-        return res.status(401).json({ 
-          status: "fail", 
-          message: "User no longer exists" 
-        });
-      }
+      currentUser.isAdvisor = currentUser.isAdvisor === 1;
       
-      // Normalize isAdvisor
-      currentUser.isAdvisor = currentUser.isAdvisor === 1 || currentUser.isAdvisor === true;
-      
-      // Check role if required
-      if (requiredRole && currentUser.role !== requiredRole) {
-        return res.status(403).json({ 
-          status: "fail", 
-          message: `Access denied. ${requiredRole} role required.` 
-        });
+      // FIX: Case-Insensitive Role Check to prevent "Access Denied"
+      if (requiredRole) {
+        const userRole = (currentUser.role || '').toLowerCase();
+        const reqRole = requiredRole.toLowerCase();
+
+        // Allow access if roles match OR if it's a special case (Teacher accessing Advisor stuff)
+        const isAuthorized = 
+            userRole === reqRole || 
+            (reqRole === 'teacher' && currentUser.isAdvisor) ||
+            (reqRole === 'advisor' && userRole === 'teacher'); // Advisors are Teachers
+
+        if (!isAuthorized) {
+            return res.status(403).json({ 
+                status: "fail", 
+                message: `Access denied. ${requiredRole} role required.` 
+            });
+        }
       }
       
       req.user = currentUser;
-      req.userId = currentUser.id;
       next();
     } catch (error) {
-      res.status(401).json({ 
-        status: "fail", 
-        message: "Invalid Token" 
-      });
+      console.error("Auth Error:", error);
+      res.status(401).json({ status: "fail", message: "Invalid Token" });
     }
   };
 };
 
 module.exports = auth;
-

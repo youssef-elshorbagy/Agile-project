@@ -3,20 +3,37 @@ const pathLib = require('path');
 
 const createCourse = async (req, res) => {
   try {
-    const { name, code, creditHours, instructor } = req.body;
+    // Now accepting level and prerequisite
+    const { name, code, creditHours, level, prerequisite, instructor } = req.body;
 
-    // 1. Check if course code exists
     const check = await sql.query`SELECT * FROM Courses WHERE code = ${code}`;
     if (check.recordset.length > 0) return res.status(400).json({ status: "fail", message: "Course Code already exists" });
 
-    // 2. Insert Course (Using 'instructorId' which links to Users table)
+    // 1. Insert Core Course Data
     const result = await sql.query`
-        INSERT INTO Courses (name, code, creditHours, instructorId)
-        OUTPUT INSERTED.*
-        VALUES (${name}, ${code}, ${creditHours}, ${instructor})
+        INSERT INTO Courses (name, code, instructorId)
+        OUTPUT INSERTED.id
+        VALUES (${name}, ${code}, ${instructor})
     `;
+    const courseId = result.recordset[0].id;
 
-    res.status(201).json({ status: "success", data: { course: result.recordset[0] } });
+    // 2. Helper to insert EAV values
+    const insertAttr = async (attrName, value) => {
+        if (value) {
+            await sql.query`
+                INSERT INTO CourseAttributeValues (course_id, attr_id, attr_value)
+                SELECT ${courseId}, attr_id, ${value} 
+                FROM CourseAttributes WHERE attributeName = ${attrName}
+            `;
+        }
+    };
+
+    // 3. Insert Attributes
+    await insertAttr('CreditHours', creditHours);
+    await insertAttr('Level', level);
+    await insertAttr('Prerequisite', prerequisite);
+
+    res.status(201).json({ status: "success", message: "Course created successfully", data: { course: result.recordset[0] } });
   } catch (error) {
     res.status(400).json({ status: "fail", message: error.message });
   }
@@ -24,375 +41,286 @@ const createCourse = async (req, res) => {
 
 const getAllCourses = async (req, res) => {
   try {
-    // 1. Get all courses with Instructor Name
+    // EAV Pivot to get CreditHours, Level, Prereq back as columns
     const result = await sql.query`
-        SELECT C.*, U.fullName as instructorName, U.id as instructorId 
+        SELECT 
+            C.id, C.name, C.code, 
+            P.fullName as instructorName, P.id as instructorId,
+            MAX(CASE WHEN CA.attributeName = 'CreditHours' THEN CAV.attr_value END) as creditHours,
+            MAX(CASE WHEN CA.attributeName = 'Level' THEN CAV.attr_value END) as level,
+            MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) as prerequisite
         FROM Courses C 
-        LEFT JOIN Users U ON C.instructorId = U.id
+        LEFT JOIN People P ON C.instructorId = P.id
+        LEFT JOIN CourseAttributeValues CAV ON C.id = CAV.course_id
+        LEFT JOIN CourseAttributes CA ON CAV.attr_id = CA.attr_id
+        GROUP BY C.id, C.name, C.code, P.fullName, P.id
     `;
     let courses = result.recordset;
 
-    // 2. Loop to get students (Enrollments)
+    // Attach Enrollment Counts
     for (let course of courses) {
-        // If requester is an advisor, only return pending students assigned to that advisor
-        let pendingRes;
-        if (req.user && req.user.isAdvisor) {
-            pendingRes = await sql.query`
-                SELECT U.id, U.fullName, U.email, E.EnrollmentID 
-                FROM Enrollments E
-                JOIN Users U ON E.studentId = U.id
-                JOIN StudentAdvisors SA ON SA.studentId = U.id
-                WHERE E.courseId = ${course.id} AND E.status = 'pending' AND SA.advisorId = ${req.user.id}
-            `;
-        } else {
-            pendingRes = await sql.query`
-                SELECT U.id, U.fullName, U.email, E.EnrollmentID 
-                FROM Enrollments E
-                JOIN Users U ON E.studentId = U.id
-                WHERE E.courseId = ${course.id} AND E.status = 'pending'
-            `;
-        }
+        const pendingRes = await sql.query`
+            SELECT P.id, P.fullName, P.email, E.EnrollmentID FROM Enrollments E
+            JOIN People P ON E.studentId = P.id WHERE E.courseId = ${course.id} AND E.status = 'pending'
+        `;
         course.studentsPending = pendingRes.recordset;
-
+        
         const enrolledRes = await sql.query`
-            SELECT U.id, U.fullName, U.email FROM Enrollments E
-            JOIN Users U ON E.studentId = U.id
-            WHERE E.courseId = ${course.id} AND E.status = 'enrolled'
+            SELECT P.id, P.fullName, P.email FROM Enrollments E
+            JOIN People P ON E.studentId = P.id WHERE E.courseId = ${course.id} AND E.status = 'enrolled'
         `;
         course.studentsEnrolled = enrolledRes.recordset;
         
-        // Format instructor object for frontend
         course.instructor = { fullName: course.instructorName, id: course.instructorId };
     }
-    
     res.status(200).json({ status: "success", results: courses.length, data: { courses } });
-  } catch (error) {
-    res.status(400).json({ status: "fail", message: error.message });
-  }
-};
-
-const requestEnrollment = async (req, res) => {
-    try {
-        const courseId = req.params.id;
-        const studentId = req.user.id; 
-
-        // Check if already enrolled/pending
-        const enrollCheck = await sql.query`SELECT * FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`;
-        
-        if (enrollCheck.recordset.length > 0) {
-            const status = enrollCheck.recordset[0].status;
-            if (status === 'enrolled') return res.status(400).json({ status: "fail", message: "Already enrolled" });
-            if (status === 'pending') return res.status(400).json({ status: "fail", message: "Already pending" });
-        }
-
-        await sql.query`INSERT INTO Enrollments (studentId, courseId, status) VALUES (${studentId}, ${courseId}, 'pending')`;
-        res.status(200).json({ status: "success", message: "Request sent successfully" });
-    } catch (error) {
-        res.status(400).json({ status: "fail", message: error.message });
-    }
-};
-
-const manageEnrollment = async (req, res) => {
-    try {
-        const { enrollmentId, status } = req.body; 
-
-        // SECURITY: Only Advisors or Admins can accept/reject
-        if (!req.user || (!req.user.isAdvisor && req.user.role !== 'admin')) {
-            return res.status(403).json({ status: "fail", message: "Access Denied: Only Advisors can manage requests." });
-        }
-
-        if (!enrollmentId) {
-            return res.status(400).json({ status: "fail", message: "Missing Enrollment ID" });
-        }
-
-        // Run the Update using the UNIQUE EnrollmentID
-        if (status === 'enrolled') {
-             await sql.query`
-                UPDATE Enrollments 
-                SET status = 'enrolled' 
-                WHERE EnrollmentID = ${enrollmentId}
-            `;
-        } else if (status === 'rejected') {
-            // Delete the request entirely
-            await sql.query`
-                DELETE FROM Enrollments 
-                WHERE EnrollmentID = ${enrollmentId}
-            `;
-        }
-
-        res.status(200).json({ status: "success", message: `Request ${status === 'enrolled' ? 'Approved' : 'Rejected'}` });
-
-    } catch (error) {
-        console.error("Manage Request Error:", error);
-        res.status(500).json({ status: "fail", message: error.message });
-    }
+  } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
 };
 
 const getMyCourses = async (req, res) => {
     try {
         const userId = req.user.id;
+        const userRole = (req.user.role || '').toLowerCase();
         let result;
 
-        // 1. Get the basic course list
-        if (req.user.role === 'teacher') {
-            result = await sql.query`
-                SELECT C.*, U.fullName as instructorName, U.id as instructorId 
-                FROM Courses C
-                JOIN Users U ON C.instructorId = U.id
-                WHERE C.instructorId = ${userId}
-            `;
+        // Base Query with EAV Pivot
+        const baseSelect = `
+            SELECT 
+                C.id, C.name, C.code, 
+                MAX(CASE WHEN CA.attributeName = 'CreditHours' THEN CAV.attr_value END) as creditHours,
+                MAX(CASE WHEN CA.attributeName = 'Level' THEN CAV.attr_value END) as level,
+                P.fullName as instructorName
+            FROM Courses C
+            LEFT JOIN People P ON C.instructorId = P.id
+            LEFT JOIN CourseAttributeValues CAV ON C.id = CAV.course_id
+            LEFT JOIN CourseAttributes CA ON CAV.attr_id = CA.attr_id
+        `;
+
+        if (userRole === 'teacher' || userRole === 'admin') {
+            result = await sql.query(baseSelect + ` WHERE C.instructorId = ${userId} GROUP BY C.id, C.name, C.code, P.fullName`);
         } else {
-            result = await sql.query`
-                SELECT C.*, U.fullName as instructorName, U.id as instructorId 
-                FROM Courses C
-                JOIN Enrollments E ON C.id = E.courseId
-                JOIN Users U ON C.instructorId = U.id
+            result = await sql.query(baseSelect + ` 
+                JOIN Enrollments E ON C.id = E.courseId 
                 WHERE E.studentId = ${userId} AND E.status = 'enrolled'
-            `;
+                GROUP BY C.id, C.name, C.code, P.fullName
+            `);
         }
 
-        let courses = result.recordset;
-
-        // Loop through courses to attach students/requests
+        const courses = result.recordset;
+        // Attach student counts
         for (let course of courses) {
-            // Get Pending Requests WITH EnrollmentID
-            const pendingRes = await sql.query`
-                SELECT U.id, U.fullName, U.email, E.EnrollmentID 
-                FROM Enrollments E
-                JOIN Users U ON E.studentId = U.id
-                WHERE E.courseId = ${course.id} AND E.status = 'pending'
-            `;
-            course.studentsPending = pendingRes.recordset;
-
-            // Get Enrolled Students
-            const enrolledRes = await sql.query`
-                SELECT U.id, U.fullName, U.email 
-                FROM Enrollments E
-                JOIN Users U ON E.studentId = U.id
-                WHERE E.courseId = ${course.id} AND E.status = 'enrolled'
-            `;
-            course.studentsEnrolled = enrolledRes.recordset;
-            
-            // Format instructor object for frontend consistency
-            course.instructor = { fullName: course.instructorName, id: course.instructorId };
+            const pending = await sql.query`SELECT studentId FROM Enrollments WHERE courseId = ${course.id} AND status = 'pending'`;
+            const enrolled = await sql.query`SELECT studentId FROM Enrollments WHERE courseId = ${course.id} AND status = 'enrolled'`;
+            course.studentsPending = pending.recordset;
+            course.studentsEnrolled = enrolled.recordset;
         }
-
         res.status(200).json({ status: "success", data: { courses } });
-    } catch (error) {
-        res.status(400).json({ status: "fail", message: error.message });
-    }
+    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
 };
 
 const getCourseDetails = async (req, res) => {
     try {
         const courseId = req.params.id;
         
-        // 1. Get Course Info
-        const courseRes = await sql.query`
-            SELECT C.*, U.fullName as instructorName FROM Courses C
-            JOIN Users U ON C.instructorId = U.id WHERE C.id = ${courseId}
+        // EAV Pivot for Single Course
+        const result = await sql.query`
+            SELECT 
+                C.id, C.name, C.code, P.fullName as instructorName, P.id as instructorId,
+                MAX(CASE WHEN CA.attributeName = 'CreditHours' THEN CAV.attr_value END) as creditHours,
+                MAX(CASE WHEN CA.attributeName = 'Level' THEN CAV.attr_value END) as level,
+                MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) as prerequisite
+            FROM Courses C
+            LEFT JOIN People P ON C.instructorId = P.id
+            LEFT JOIN CourseAttributeValues CAV ON C.id = CAV.course_id
+            LEFT JOIN CourseAttributes CA ON CAV.attr_id = CA.attr_id
+            WHERE C.id = ${courseId}
+            GROUP BY C.id, C.name, C.code, P.fullName, P.id
         `;
-
-        if(courseRes.recordset.length === 0) return res.status(404).json({ status: "fail", message: "Course not found" });
-
-        const course = courseRes.recordset[0];
         
-        // 2. Get Announcements
+        const course = result.recordset[0];
+        if (!course) return res.status(404).json({ status: "fail", message: "Course not found" });
+
+        course.instructor = { fullName: course.instructorName, id: course.instructorId };
         const annRes = await sql.query`SELECT * FROM Announcements WHERE courseId = ${courseId} ORDER BY createdAt DESC`;
         course.announcements = annRes.recordset;
 
-        // 3. Get Lectures
-        const lecRes = await sql.query`SELECT * FROM Lectures WHERE courseId = ${courseId} ORDER BY createdAt DESC`;
+        const assignRes = await sql.query`
+            SELECT U.id, U.title, U.fileName, U.filePath, U.createdAt,
+            MAX(CASE WHEN UA.attributeName = 'Deadline' THEN UAV.attr_value END) as deadline,
+            MAX(CASE WHEN UA.attributeName = 'MaxScore' THEN UAV.attr_value END) as maxScore
+            FROM Uploads U
+            LEFT JOIN UploadAttributeValues UAV ON U.id = UAV.upload_id
+            LEFT JOIN UploadAttributes UA ON UAV.attr_id = UA.attr_id
+            WHERE U.courseId = ${courseId} AND U.uploadType = 'assignment_item'
+            GROUP BY U.id, U.title, U.fileName, U.filePath, U.createdAt
+        `;
+        course.assignments = assignRes.recordset.map(a => ({
+            ...a, link: a.fileName ? `${req.protocol}://${req.get('host')}/uploads/${a.fileName}` : null
+        }));
+
+        const lecRes = await sql.query`SELECT * FROM Uploads WHERE courseId = ${courseId} AND uploadType = 'lecture_pdf'`;
         course.lectures = lecRes.recordset;
 
-        // 4. Get Assignments
-        const assignRes = await sql.query`SELECT * FROM Assignments WHERE courseId = ${courseId} ORDER BY deadline ASC`;
-        
-        // Helper function to find a column even if Capitalization is wrong
-        const getVal = (row, key) => {
-            const foundKey = Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
-            return foundKey ? row[foundKey] : null;
-        };
-
-        course.assignments = assignRes.recordset.map(a => {
-            const realTitle = getVal(a, 'title') || getVal(a, 'assignmenttitle') || "Untitled Assignment";
-            const realDesc = getVal(a, 'description');
-            const realId = getVal(a, 'assignmentid') || getVal(a, 'id');
-            const realFilePath = getVal(a, 'filepath');
-            const realFileName = getVal(a, 'filename');
-
-            const fileName = realFileName || (realFilePath ? realFilePath.split('\\').pop().split('/').pop() : null);
-            
-            return {
-                id: realId, 
-                courseId: courseId,
-                title: realTitle,
-                description: realDesc,
-                deadline: getVal(a, 'deadline'),
-                fileName: fileName,
-                filePath: realFilePath,
-                link: fileName ? `${req.protocol}://${req.get('host')}/uploads/${fileName}` : null,
-                createdAt: getVal(a, 'createdat')
-            };
-        });
-
         res.status(200).json({ status: "success", data: { course } });
+    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
+};
 
-    } catch (error) {
-        console.error("Backend Error:", error);
-        res.status(400).json({ status: "fail", message: error.message });
-    }
+// ... Helper functions
+const requestEnrollment = async (req, res) => {
+    try {
+        const courseId = req.params.id;
+        const studentId = req.user.id; 
+        const enrollCheck = await sql.query`SELECT * FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`;
+        if (enrollCheck.recordset.length > 0) return res.status(400).json({ status: "fail", message: "Already enrolled or pending" });
+        await sql.query`INSERT INTO Enrollments (studentId, courseId, status) VALUES (${studentId}, ${courseId}, 'pending')`;
+        res.status(200).json({ status: "success", message: "Request sent successfully" });
+    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
+};
+
+const manageEnrollment = async (req, res) => {
+    try {
+        const { enrollmentId, status } = req.body; 
+        if (!enrollmentId) return res.status(400).json({ status: "fail", message: "Missing Enrollment ID" });
+        if (status === 'enrolled') await sql.query`UPDATE Enrollments SET status = 'enrolled' WHERE EnrollmentID = ${enrollmentId}`;
+        else if (status === 'rejected') await sql.query`DELETE FROM Enrollments WHERE EnrollmentID = ${enrollmentId}`;
+        res.status(200).json({ status: "success", message: `Request ${status}` });
+    } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
 };
 
 const addAnnouncement = async (req, res) => {
     try {
         const { text } = req.body; 
-        await sql.query`
-            INSERT INTO Announcements (courseId, teacherName, content)
-            VALUES (${req.params.id}, ${req.user.fullName}, ${text})
-        `;
+        await sql.query`INSERT INTO Announcements (courseId, teacherName, content) VALUES (${req.params.id}, ${req.user.fullName}, ${text})`;
         res.status(200).json({ status: "success", message: "Announcement added" });
-    } catch (error) {
-        res.status(400).json({ status: "fail", message: error.message });
-    }
+    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
 };
 
 const addLecture = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
-
-        await sql.query`
-            INSERT INTO Lectures (courseId, title, fileName, filePath)
-            VALUES (${req.params.id}, ${req.body.title}, ${req.file.filename}, ${req.file.path})
-        `;
+        await sql.query`INSERT INTO Uploads (courseId, uploaderId, uploadType, title, fileName, filePath) VALUES (${req.params.id}, ${req.user.id}, 'lecture_pdf', ${req.body.title}, ${req.file.filename}, ${req.file.path})`;
         res.status(200).json({ status: "success", message: "Lecture uploaded" });
-    } catch (error) {
-        res.status(400).json({ status: "fail", message: error.message });
-    }
+    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
 };
 
 const addAssignment = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ status: "fail", message: "No PDF file uploaded" });
-
-        const { title, description, deadline } = req.body;
-
-        if (!title || !deadline) {
-            return res.status(400).json({ status: "fail", message: "Title and deadline are required" });
-        }
-
-        const parsedDeadline = new Date(deadline);
-        if (isNaN(parsedDeadline)) {
-            return res.status(400).json({ status: "fail", message: "Invalid deadline format" });
-        }
-
-        const sqlDeadline = parsedDeadline.toISOString().slice(0, 19).replace('T', ' ');
-        const cleanDescription = description === '' || description === 'null' ? null : description;
-
-        const result = await sql.query`
-            INSERT INTO Assignments (courseId, title, description, deadline, fileName, filePath)
-            OUTPUT INSERTED.*
-            VALUES (${req.params.id}, ${title}, ${cleanDescription}, ${sqlDeadline}, ${req.file.filename}, ${req.file.path})
-        `;
-
-        res.status(201).json({ status: "success", message: "Assignment uploaded", data: { assignment: result.recordset[0] } });
-
-    } catch (error) {
-        console.error(error);
-        res.status(400).json({ status: "fail", message: error.message });
-    }
+        const { title, deadline, maxScore } = req.body;
+        const uploadRes = await sql.query`INSERT INTO Uploads (courseId, uploaderId, uploadType, title, fileName, filePath) OUTPUT INSERTED.id VALUES (${req.params.id}, ${req.user.id}, 'assignment_item', ${title}, ${req.file.filename}, ${req.file.path})`;
+        const uploadId = uploadRes.recordset[0].id;
+        await sql.query`INSERT INTO UploadAttributeValues (upload_id, attr_id, attr_value) SELECT ${uploadId}, attr_id, ${deadline} FROM UploadAttributes WHERE attributeName = 'Deadline'`;
+        await sql.query`INSERT INTO UploadAttributeValues (upload_id, attr_id, attr_value) SELECT ${uploadId}, attr_id, ${maxScore || '100'} FROM UploadAttributes WHERE attributeName = 'MaxScore'`;
+        res.status(201).json({ status: "success", message: "Assignment uploaded" });
+    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
 };
 
 const submitAssignment = async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ status: "fail", message: "No PDF uploaded." });
-        }
-
-        const assignmentId = req.params.id;
-        const studentId = req.user.id;
-
-        await sql.query`
-            INSERT INTO Submissions (assignmentId, studentId, fileName, filePath)
-            VALUES (${assignmentId}, ${studentId}, ${req.file.filename}, ${req.file.path})
-        `;
-
-        res.status(200).json({ status: "success", message: "Assignment submitted successfully!" });
-
-    } catch (error) {
-        console.error("Submission Error:", error);
-        res.status(500).json({ status: "fail", message: error.message });
-    }
+        if (!req.file) return res.status(400).json({ status: "fail", message: "No PDF uploaded." });
+        const uploadRes = await sql.query`INSERT INTO Uploads (courseId, uploaderId, uploadType, fileName, filePath) OUTPUT INSERTED.id VALUES (NULL, ${req.user.id}, 'student_submission', ${req.file.filename}, ${req.file.path})`;
+        const submissionId = uploadRes.recordset[0].id;
+        await sql.query`INSERT INTO UploadAttributeValues (upload_id, attr_id, attr_value) SELECT ${submissionId}, attr_id, ${req.params.assId} FROM UploadAttributes WHERE attributeName = 'ReferenceId'`;
+        res.status(200).json({ status: "success", message: "Submitted successfully!" });
+    } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
 };
 
 const getSubmissionsForAssignment = async (req, res) => {
     try {
         const assignmentId = req.params.assId;
-
-        const result = await sql.query(`
-            SELECT 
-                S.SubmissionID, 
-                S.FilePath, 
-                S.SubmittedAt, 
-                S.Grade, 
-                S.Feedback,
-                U.ID as StudentID, 
-                U.fullName AS StudentName, 
-                U.universityId 
-            FROM Submissions S
-            JOIN Users U ON S.StudentID = U.ID
-            WHERE S.AssignmentID = ${assignmentId}
-            ORDER BY S.SubmittedAt DESC
-        `);
-
-        const submissions = result.recordset.map(s => ({
-            ...s,
-            downloadLink: s.FilePath ? `${req.protocol}://${req.get('host')}/uploads/${s.FilePath.split('\\').pop().split('/').pop()}` : null,
-            id: s.SubmissionID
-        }));
-
-        res.status(200).json({ status: "success", data: submissions });
-
-    } catch (error) {
-        console.error("Error fetching submissions:", error);
-        res.status(500).json({ status: "fail", message: error.message });
-    }
+        const result = await sql.query`
+            SELECT U.id as SubmissionID, U.fileName, U.filePath, U.createdAt as SubmittedAt, P.fullName, P.universityId,
+            MAX(CASE WHEN UA.attributeName = 'Grade' THEN UAV.attr_value END) as Grade,
+            MAX(CASE WHEN UA.attributeName = 'Feedback' THEN UAV.attr_value END) as Feedback
+            FROM Uploads U
+            JOIN People P ON U.uploaderId = P.id
+            JOIN UploadAttributeValues Ref ON U.id = Ref.upload_id
+            JOIN UploadAttributes UA_Ref ON Ref.attr_id = UA_Ref.attr_id
+            LEFT JOIN UploadAttributeValues UAV ON U.id = UAV.upload_id
+            LEFT JOIN UploadAttributes UA ON UAV.attr_id = UA.attr_id
+            WHERE UA_Ref.attributeName = 'ReferenceId' AND Ref.attr_value = CAST(${assignmentId} AS NVARCHAR)
+            GROUP BY U.id, U.fileName, U.filePath, U.createdAt, P.fullName, P.universityId
+            ORDER BY U.createdAt DESC
+        `;
+        res.status(200).json({ status: "success", data: result.recordset });
+    } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
 };
 
 const gradeSubmission = async (req, res) => {
     try {
-        const submissionId = req.params.subId;
         const { grade, feedback } = req.body;
-
-        if (grade === undefined || grade === null) {
-            return res.status(400).json({ status: "fail", message: "Grade is required." });
-        }
-
         await sql.query`
-            UPDATE Submissions 
-            SET Grade = ${grade}, Feedback = ${feedback || null} 
-            WHERE SubmissionID = ${submissionId}
+            MERGE INTO UploadAttributeValues AS target
+            USING (SELECT attr_id FROM UploadAttributes WHERE attributeName = 'Grade') AS source
+            ON (target.upload_id = ${req.params.subId} AND target.attr_id = source.attr_id)
+            WHEN MATCHED THEN UPDATE SET attr_value = ${grade}
+            WHEN NOT MATCHED THEN INSERT (upload_id, attr_id, attr_value) VALUES (${req.params.subId}, source.attr_id, ${grade});
         `;
+        await sql.query`
+            MERGE INTO UploadAttributeValues AS target
+            USING (SELECT attr_id FROM UploadAttributes WHERE attributeName = 'Feedback') AS source
+            ON (target.upload_id = ${req.params.subId} AND target.attr_id = source.attr_id)
+            WHEN MATCHED THEN UPDATE SET attr_value = ${feedback}
+            WHEN NOT MATCHED THEN INSERT (upload_id, attr_id, attr_value) VALUES (${req.params.subId}, source.attr_id, ${feedback});
+        `;
+        res.status(200).json({ status: "success", message: "Graded" });
+    } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
+};
 
-        res.status(200).json({ status: "success", message: "Grade saved successfully." });
+const getStudentAssignments = async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        const result = await sql.query`
+            SELECT 
+                U.id, U.title as Title, C.name as CourseName, C.code as CourseCode,
+                MAX(CASE WHEN UA.attributeName = 'Deadline' THEN UAV.attr_value END) as Deadline,
+                MAX(Sub.Grade) as Grade, 
+                MAX(Sub.SubmittedAt) as SubmittedAt
+            FROM Uploads U
+            JOIN Courses C ON U.courseId = C.id
+            JOIN Enrollments E ON E.courseId = C.id
+            LEFT JOIN UploadAttributes UA ON 1=1
+            LEFT JOIN UploadAttributeValues UAV ON U.id = UAV.upload_id AND UA.attr_id = UAV.attr_id
+            LEFT JOIN (
+                SELECT Ref.attr_value as assId, U2.createdAt as SubmittedAt, G.attr_value as Grade
+                FROM Uploads U2
+                JOIN UploadAttributeValues Ref ON U2.id = Ref.upload_id
+                JOIN UploadAttributes UA_Ref ON Ref.attr_id = UA_Ref.attr_id
+                LEFT JOIN UploadAttributeValues G ON U2.id = G.upload_id
+                LEFT JOIN UploadAttributes UA_G ON G.attr_id = UA_G.attr_id AND UA_G.attributeName = 'Grade'
+                WHERE U2.uploadType = 'student_submission' AND U2.uploaderId = ${studentId} AND UA_Ref.attributeName = 'ReferenceId'
+            ) Sub ON CAST(U.id AS NVARCHAR) = Sub.assId
+            WHERE E.studentId = ${studentId} AND E.status = 'enrolled' AND U.uploadType = 'assignment_item' AND UA.attributeName = 'Deadline'
+            GROUP BY U.id, U.title, C.name, C.code
+            ORDER BY Deadline ASC
+        `;
+        res.status(200).json({ status: "success", data: result.recordset });
+    } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
+};
 
-    } catch (error) {
-        console.error("Error grading submission:", error);
-        res.status(500).json({ status: "fail", message: error.message });
-    }
+const getMyCourseSubmissions = async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        const courseId = req.params.id;
+        const result = await sql.query`
+            SELECT U.id as SubmissionID, Ref.attr_value as AssignmentID, U.createdAt as SubmittedAt, U.fileName,
+            MAX(CASE WHEN UA.attributeName = 'Grade' THEN UAV.attr_value END) as Grade,
+            MAX(CASE WHEN UA.attributeName = 'Feedback' THEN UAV.attr_value END) as Feedback
+            FROM Uploads U
+            JOIN UploadAttributeValues Ref ON U.id = Ref.upload_id
+            JOIN UploadAttributes UA_Ref ON Ref.attr_id = UA_Ref.attr_id
+            LEFT JOIN UploadAttributeValues UAV ON U.id = UAV.upload_id
+            LEFT JOIN UploadAttributes UA ON UAV.attr_id = UA.attr_id
+            WHERE U.uploaderId = ${studentId} AND U.uploadType = 'student_submission' AND UA_Ref.attributeName = 'ReferenceId'
+            AND Ref.attr_value IN (SELECT CAST(id AS NVARCHAR) FROM Uploads WHERE courseId = ${courseId})
+            GROUP BY U.id, Ref.attr_value, U.createdAt, U.fileName
+        `;
+        res.status(200).json({ status: "success", data: result.recordset });
+    } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
 };
 
 module.exports = { 
-    createCourse, 
-    getAllCourses, 
-    requestEnrollment, 
-    manageEnrollment, 
-    getMyCourses,
-    getCourseDetails, 
-    addAnnouncement, 
-    addLecture, 
-    addAssignment, 
-    submitAssignment, 
-    getSubmissionsForAssignment,
-    gradeSubmission
+    createCourse, getAllCourses, requestEnrollment, manageEnrollment, getMyCourses,
+    getCourseDetails, addAnnouncement, addLecture, addAssignment, submitAssignment, 
+    getSubmissionsForAssignment, gradeSubmission, getStudentAssignments, getMyCourseSubmissions
 };

@@ -1,15 +1,12 @@
 const express = require("express");
 const router = express.Router();
+const announcementController = require("../controllers/announcement.controller");
+const userControllers = require("../controllers/auth.controllers");
 
-// Example Route
-router.get("/", async (req, res) => {
-    try {
-        // Your logic for fetching announcements
-        res.json({ message: "Announcements fetched" });
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
-});
+// Protect all announcement routes
+router.use(userControllers.protectRoutes);
 
-// IMPORTANT: This is what was missing!
+// Get announcements (Automatically handles Student/Teacher/Parent logic)
+router.get("/", announcementController.getAllAnnouncements);
+
 module.exports = router;

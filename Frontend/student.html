@@ -19,6 +19,7 @@
         <div class="navbar">
             <a class="nav-link active" onclick="switchView('dashboard', this)">Dashboard</a>
             <a class="nav-link" onclick="switchView('register', this)">Register Courses</a>
+            <a class="nav-link" onclick="switchView('messages', this)">Messages</a>
             <a class="nav-link" onclick="switchView('profile', this)">My Profile</a>
         </div>
 
@@ -33,16 +34,15 @@
                             <button class="nav-btn" onclick="scrollGrid('right', 'coursesGrid')">›</button>
                         </div>
                     </div>
-
                     <div class="courses-grid" id="coursesGrid">
                         <p style="text-align:center; width:100%; color:#666;">Loading courses...</p>
                     </div>
                 </div>
 
-                <div class="assignments-section">
-                    <h2>Recent Assignments</h2>
-                    <div class="assignments-list">
-                        <p style="color:#666;">No pending assignments.</p>
+                <div class="assignments-section" style="margin-top: 30px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+                    <h2 style="margin-bottom: 15px; color: #2d3436;">📅 Upcoming Assignments</h2>
+                    <div id="studentPendingAssignments">
+                        <p style="color: #666;">Loading tasks...</p>
                     </div>
                 </div>
             </div>
@@ -60,11 +60,40 @@
                                     <th>Action</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="availableCoursesTableBody">
                                 <tr><td colspan="4" style="text-align:center;">Loading available courses...</td></tr>
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <div id="view-messages" style="display: none;">
+                <div class="content-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="color: white;">Direct Messages</h2>
+                    <button onclick="showStudentMessageForm()" style="background:#00b894; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; font-weight: bold;">+ New Message to Teacher</button>
+                </div>
+
+                <div id="studentMessageForm" style="display:none; margin-bottom:20px; padding:20px; background:white; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+                    <h3 style="margin-top:0; color: #2d3436;">Send Message to Instructor</h3>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Select Teacher:</label>
+                        <select id="teacherRecipientSelect" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px;">
+                            <option value="">Loading teachers...</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block; font-weight:600; margin-bottom:5px;">Your Message:</label>
+                        <textarea id="studentMsgBody" rows="4" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; resize: none;" placeholder="Type your question here..."></textarea>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="sendStudentMessage()" style="background:#6c5ce7; color:white; border:none; padding:12px 25px; border-radius:8px; cursor:pointer; font-weight: bold;">Send Message</button>
+                        <button onclick="document.getElementById('studentMessageForm').style.display='none'" style="background:#fab1a0; color:#2d3436; border:none; padding:12px 25px; border-radius:8px; cursor:pointer;">Cancel</button>
+                    </div>
+                </div>
+
+                <div id="studentMessagesList">
+                    <p style="color:white; text-align: center;">Loading your conversations...</p>
                 </div>
             </div>
 
@@ -77,7 +106,7 @@
                         <div class="gpa-progress-fill" id="gpaBar"></div>
                     </div>
 
-                    <div class="level-badge-circle" id="half-load">2</div>
+                    <div class="level-badge-circle" id="studentLevel">1</div>
                 </div>
                 <div class="info-card">
                     <h3>My Personal Information</h3>
@@ -91,13 +120,9 @@
                         <strong>Email Address:</strong> <span id="studentEmail">-</span>
                     </div>
                     <div class="info-item">
-                        <strong>Level:</strong> <span id="studentLevel">-</span>
-                    </div>
-                    <div class="info-item">
                         <strong>Role:</strong> <span class="role-badge role-student">Student</span>
                     </div>
                     <br>
-                    <button class="submit-button" style="width: auto;">Edit Profile</button>
                 </div>
             </div>
 

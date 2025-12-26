@@ -456,6 +456,7 @@ body {
 }
 
 .course-card h3 {
+    color: white !important;
     margin-bottom: 10px;
     font-size: 18px;
 }

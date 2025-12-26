@@ -12,29 +12,34 @@ function requireAuth(requiredRole) {
     const user = JSON.parse(userString);
 
     if (requiredRole) {
-        // allow teachers who are also advisors (isAdvisor flag) to access teacher pages
-        if (requiredRole === 'teacher') {
-            if (!(user.role === 'teacher' || user.isAdvisor === true)) {
+        const reqRole = requiredRole.charAt(0).toUpperCase() + requiredRole.slice(1);
+
+        if (reqRole === 'Teacher') {
+            // Allow Teachers who are also advisors to access teacher pages
+            if (!(user.role === 'Teacher' || user.isAdvisor === true || user.role === 'Advisor')) {
                 alert("Access Denied: You are not authorized to view this page.");
-                if(user.role === 'admin') window.location.href = 'admin.html';
-                else if(user.role === 'teacher') window.location.href = 'teacher.html';
-                else window.location.href = 'student.html';
+                redirectByRole(user);
                 return null;
             }
         } else {
-            if (user.role !== requiredRole) {
+            // Strict comparison for other roles (Admin, Parent, Student)
+            if (user.role !== reqRole) {
                 alert("Access Denied: You are not authorized to view this page.");
-                if(user.role === 'admin') window.location.href = 'admin.html';
-                else if(user.role === 'teacher') window.location.href = 'teacher.html';
-                else if(user.role === 'parent') window.location.href = 'parent.html';
-                else if(user.role === 'ta') window.location.href = 'ta.html';
-                else window.location.href = 'student.html';
+                redirectByRole(user);
                 return null;
             }
         }
     }
 
     return { token, user };
+}
+
+function redirectByRole(user) {
+    if (user.role === 'Admin') window.location.href = 'admin.html';
+    else if (user.role === 'Teacher' || user.isAdvisor === true) window.location.href = 'teacher.html';
+    else if (user.role === 'Parent') window.location.href = 'parent.html';
+    else if (user.role === 'TA') window.location.href = 'ta.html';
+    else window.location.href = 'student.html';
 }
 
 function logout() {

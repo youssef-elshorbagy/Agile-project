@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment Submissions</title>
+    <link rel="stylesheet" href="css/style.css"> </head>
+<body>
+    <div id="submissions-container" class="page-container">
+        <h2>Submissions for Assignment: <span id="assignmentTitle">Loading...</span></h2>
+        
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>University ID</th>
+                        <th>Submitted At</th>
+                        <th>Grade</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="submissionsTableBody">
+                    <tr><td colspan="5">Loading submissions...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="gradingModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('gradingModal').style.display='none'">&times;</span>
+            <h3>Grade Submission for <span id="studentNameModal"></span></h3>
+            <p>Download Submission: <a id="downloadLinkModal" href="#" target="_blank">Click Here</a></p>
+            <form id="gradeForm">
+                <input type="hidden" id="submissionIdInput">
+                <label for="gradeInput">Grade (e.g., 95):</label>
+                <input type="number" id="gradeInput" required min="0" max="100">
+                <label for="feedbackInput">Feedback:</label>
+                <textarea id="feedbackInput"></textarea>
+                <button type="submit" class="approve-btn">Save Grade</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/submissions.js"></script> </body>
+</html>

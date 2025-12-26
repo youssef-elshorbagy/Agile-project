@@ -44,29 +44,52 @@ connectToDB().then(async () => {
     console.error("❌ Failed to connect to DB:", err);
 });
 
-// Create initial admin if not found
 async function createDefaultAdmin() {
     try {
         const adminEmail = "admin@eng.asu.edu.eg";
         const request = new sql.Request();
-        request.input("email", sql.VarChar, adminEmail);
+        request.input("email", sql.NVarChar, adminEmail);
 
-        const checkResult = await request.query(`SELECT * FROM Users WHERE email = @email`);
+        // 1. Check if person exists in the People table
+        const checkResult = await request.query(`SELECT * FROM People WHERE email = @email`);
 
         if (checkResult.recordset.length === 0) {
             const hashedPassword = await bcrypt.hash("admin123", 10);
-            const insertRequest = new sql.Request();
-            insertRequest.input("universityId", sql.VarChar, "1");
-            insertRequest.input("fullName", sql.VarChar, "System Admin");
-            insertRequest.input("email", sql.VarChar, adminEmail);
-            insertRequest.input("password", sql.VarChar, hashedPassword);
-            insertRequest.input("role", sql.VarChar, "admin");
+            
+            // Start a transaction to ensure all EAV parts are created together
+            const transaction = new sql.Transaction();
+            await transaction.begin();
 
-            await insertRequest.query(`
-                INSERT INTO Users (universityId, fullName, email, password, role)
-                VALUES (@universityId, @fullName, @email, @password, @role)
-            `);
-            console.log("✅ Default Admin Created: admin@eng.asu.edu.eg / admin123");
+            try {
+                // 2. Insert into People table
+                const insertPerson = new sql.Request(transaction);
+                insertPerson.input("universityId", sql.NVarChar, "1");
+                insertPerson.input("fullName", sql.NVarChar, "System Admin");
+                insertPerson.input("email", sql.NVarChar, adminEmail);
+                insertPerson.input("password", sql.NVarChar, hashedPassword);
+
+                const personRes = await insertPerson.query(`
+                    INSERT INTO People (universityId, fullName, email, password)
+                    OUTPUT INSERTED.id
+                    VALUES (@universityId, @fullName, @email, @password)
+                `);
+                
+                const personId = personRes.recordset[0].id;
+
+                // 3. Assign 'Admin' Role in PersonRoles
+                const insertRole = new sql.Request(transaction);
+                insertRole.input("pid", sql.Int, personId);
+                await insertRole.query(`
+                    INSERT INTO PersonRoles (person_id, role_id)
+                    SELECT @pid, role_id FROM Roles WHERE role_name = 'Admin'
+                `);
+
+                await transaction.commit();
+                console.log("✅ Default Admin Created in EAV: admin@eng.asu.edu.eg / admin123");
+            } catch (err) {
+                await transaction.rollback();
+                throw err;
+            }
         } else {
             console.log("ℹ Admin account already exists.");
         }
