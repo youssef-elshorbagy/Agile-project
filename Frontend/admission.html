@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMS - New Admission</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1>New Admission</h1>
+                <p>Upload your documents for review</p>
+            </div>
+
+            <form id="admissionForm" class="login-form">
+                <div id="messageBox" class="error-message" style="display: none;"></div>
+
+                <div class="form-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" placeholder="Enter full name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="nationalId">National ID</label>
+                    <input type="text" id="nationalId" placeholder="Enter National ID" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="birthCertificate">Birth Certificate (PDF/Image)</label>
+                    <input type="file" id="birthCertificate" accept="image/*,.pdf" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="highSchoolCertificate">High School Certificate (PDF/Image)</label>
+                    <input type="file" id="highSchoolCertificate" accept="image/*,.pdf" required>
+                </div>
+
+                <button type="submit" class="login-button">Submit Application</button>
+                
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="login.html" style="color: #666; text-decoration: none; font-size: 0.9em;">Back to Login</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/admission.js"></script>
+</body>
+</html>
