@@ -4,6 +4,7 @@ const path = require("path");
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
 
+
 const { connectToDB, sql } = require("./config/db");
 
 // Import Route Handlers
@@ -13,6 +14,7 @@ const announcementRoutes = require("./routes/announcement");
 const messageRoutes = require("./routes/message");
 // Ensure this file exists and exports correctly too
 const parentRoutes = require('./routes/parent'); 
+const admissionRoutes = require('./routes/admissionRoutes');
 
 const app = express();
 
@@ -29,7 +31,7 @@ app.use("/courses", courseRoutes);
 app.use("/messages", messageRoutes);
 app.use("/announcements", announcementRoutes); // This was Line 30
 app.use('/parent', parentRoutes);
-
+app.use('/admissions', admissionRoutes);
 // Default port
 const PORT = process.env.PORT || 3000;
 
@@ -43,6 +45,10 @@ connectToDB().then(async () => {
 }).catch((err) => {
     console.error("❌ Failed to connect to DB:", err);
 });
+
+
+
+
 
 async function createDefaultAdmin() {
     try {
