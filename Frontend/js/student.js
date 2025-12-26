@@ -252,12 +252,20 @@ async function loadMyCourses() {
 }
 
 
-
 async function loadAvailableCourses() {
     const tbody = document.querySelector('#view-register tbody');
     if(!tbody) return; 
 
     try {
+        // 1. Fetch Student's Enrolled Courses first to check prerequisites
+        const myRes = await fetch(`${API_URL}/courses/my-courses`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const myData = await myRes.json();
+        // Create a Set of codes the student has "Taken" (or is enrolled in)
+        const myTakenCodes = new Set((myData.data?.courses || []).map(c => c.code));
+
+        // 2. Fetch All Available Courses
         const response = await fetch(`${API_URL}/courses`, {
             headers: { 'Authorization': `Bearer ${session.token}` }
         });
@@ -266,19 +274,33 @@ async function loadAvailableCourses() {
         if(response.ok) {
             tbody.innerHTML = '';
             const myId = session.user.id; 
+            const studentLevel = parseInt(session.user.level || 1);
 
             result.data.courses.forEach(c => {
                 let actionBtn = '';
                 
                 const isEnrolled = c.studentsEnrolled.some(s => s.id === myId || s === myId);
                 const isPending = c.studentsPending.some(s => s.id === myId || s === myId);
+                const courseLevel = parseInt(c.level || 1);
+                
 
                 if (isEnrolled) {
                     actionBtn = `<span class="status-badge status-completed">Enrolled</span>`;
                 } else if (isPending) {
                     actionBtn = `<span class="status-badge status-pending">Pending</span>`;
                 } else {
-                    actionBtn = `<button onclick="requestCourse('${c.id}')" class="register-btn">Request</button>`;
+                    // Check Level
+                    if (studentLevel < courseLevel) {
+                        actionBtn = `<span style="color: #e74c3c; font-weight: bold; font-size: 0.9em;">⛔ Not opened yet (Lvl ${courseLevel})</span>`;
+                    } 
+                    // Check Prerequisite
+                    else if (c.prerequisite && !myTakenCodes.has(c.prerequisite)) {
+                        actionBtn = `<span style="color: #e74c3c; font-weight: bold; font-size: 0.9em;">⚠️ Missing Prereq: ${c.prerequisite}</span>`;
+                    } 
+                    // Allow Request
+                    else {
+                        actionBtn = `<button onclick="requestCourse('${c.id}')" class="register-btn">Request</button>`;
+                    }
                 }
 
                 tbody.innerHTML += `

@@ -3,13 +3,26 @@ const pathLib = require('path');
 
 const createCourse = async (req, res) => {
   try {
-    // Now accepting level and prerequisite
     const { name, code, creditHours, level, prerequisite, instructor } = req.body;
 
+    // 1. Check if Course Code already exists
     const check = await sql.query`SELECT * FROM Courses WHERE code = ${code}`;
     if (check.recordset.length > 0) return res.status(400).json({ status: "fail", message: "Course Code already exists" });
 
-    // 1. Insert Core Course Data
+    // 2. Resolve Prerequisite Code to ID (Fix)
+    let prereqId = null;
+    if (prerequisite) {
+        // Look up the ID of the prerequisite course using its code
+        const prereqCheck = await sql.query`SELECT id FROM Courses WHERE code = ${prerequisite}`;
+        
+        if (prereqCheck.recordset.length === 0) {
+            return res.status(400).json({ status: "fail", message: `Prerequisite course '${prerequisite}' not found. Please create it first.` });
+        }
+        
+        prereqId = prereqCheck.recordset[0].id;
+    }
+
+    // 3. Insert Core Course Data
     const result = await sql.query`
         INSERT INTO Courses (name, code, instructorId)
         OUTPUT INSERTED.id
@@ -17,7 +30,7 @@ const createCourse = async (req, res) => {
     `;
     const courseId = result.recordset[0].id;
 
-    // 2. Helper to insert EAV values
+    // 4. Helper to insert EAV values
     const insertAttr = async (attrName, value) => {
         if (value) {
             await sql.query`
@@ -28,10 +41,10 @@ const createCourse = async (req, res) => {
         }
     };
 
-    // 3. Insert Attributes
+    // 5. Insert Attributes (Store ID for Prerequisite)
     await insertAttr('CreditHours', creditHours);
     await insertAttr('Level', level);
-    await insertAttr('Prerequisite', prerequisite);
+    await insertAttr('Prerequisite', prereqId); // Storing the ID now
 
     res.status(201).json({ status: "success", message: "Course created successfully", data: { course: result.recordset[0] } });
   } catch (error) {
@@ -41,14 +54,15 @@ const createCourse = async (req, res) => {
 
 const getAllCourses = async (req, res) => {
   try {
-    // EAV Pivot to get CreditHours, Level, Prereq back as columns
+    // EAV Pivot: Convert stored Prereq ID back to Code for display
     const result = await sql.query`
         SELECT 
             C.id, C.name, C.code, 
             P.fullName as instructorName, P.id as instructorId,
             MAX(CASE WHEN CA.attributeName = 'CreditHours' THEN CAV.attr_value END) as creditHours,
             MAX(CASE WHEN CA.attributeName = 'Level' THEN CAV.attr_value END) as level,
-            MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) as prerequisite
+            -- Resolve stored ID to Code
+            (SELECT code FROM Courses WHERE id = TRY_CAST(MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) AS INT)) as prerequisite
         FROM Courses C 
         LEFT JOIN People P ON C.instructorId = P.id
         LEFT JOIN CourseAttributeValues CAV ON C.id = CAV.course_id
@@ -107,7 +121,6 @@ const getMyCourses = async (req, res) => {
         }
 
         const courses = result.recordset;
-        // Attach student counts
         for (let course of courses) {
             const pending = await sql.query`SELECT studentId FROM Enrollments WHERE courseId = ${course.id} AND status = 'pending'`;
             const enrolled = await sql.query`SELECT studentId FROM Enrollments WHERE courseId = ${course.id} AND status = 'enrolled'`;
@@ -128,7 +141,8 @@ const getCourseDetails = async (req, res) => {
                 C.id, C.name, C.code, P.fullName as instructorName, P.id as instructorId,
                 MAX(CASE WHEN CA.attributeName = 'CreditHours' THEN CAV.attr_value END) as creditHours,
                 MAX(CASE WHEN CA.attributeName = 'Level' THEN CAV.attr_value END) as level,
-                MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) as prerequisite
+                -- Resolve stored ID to Code
+                (SELECT code FROM Courses WHERE id = TRY_CAST(MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) AS INT)) as prerequisite
             FROM Courses C
             LEFT JOIN People P ON C.instructorId = P.id
             LEFT JOIN CourseAttributeValues CAV ON C.id = CAV.course_id
@@ -165,16 +179,93 @@ const getCourseDetails = async (req, res) => {
     } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
 };
 
-// ... Helper functions
 const requestEnrollment = async (req, res) => {
     try {
         const courseId = req.params.id;
         const studentId = req.user.id; 
+
+        // 1. Check if already enrolled
         const enrollCheck = await sql.query`SELECT * FROM Enrollments WHERE studentId = ${studentId} AND courseId = ${courseId}`;
-        if (enrollCheck.recordset.length > 0) return res.status(400).json({ status: "fail", message: "Already enrolled or pending" });
+        if (enrollCheck.recordset.length > 0) {
+            const status = enrollCheck.recordset[0].status;
+            if (status === 'enrolled') return res.status(400).json({ status: "fail", message: "Already enrolled" });
+            if (status === 'pending') return res.status(400).json({ status: "fail", message: "Already pending" });
+        }
+
+        // 2. Fetch Course Metadata via EAV
+        const courseMetaRes = await sql.query`
+            SELECT 
+                C.id, C.code, C.name,
+                MAX(CASE WHEN CA.attributeName = 'Level' THEN CAV.attr_value END) as level,
+                MAX(CASE WHEN CA.attributeName = 'Prerequisite' THEN CAV.attr_value END) as prerequisiteId
+            FROM Courses C
+            LEFT JOIN CourseAttributeValues CAV ON C.id = CAV.course_id
+            LEFT JOIN CourseAttributes CA ON CAV.attr_id = CA.attr_id
+            WHERE C.id = ${courseId}
+            GROUP BY C.id, C.code, C.name
+        `;
+        const courseMeta = courseMetaRes.recordset[0];
+
+        // 3. Fetch Student Metadata (Level)
+        const studentMetaRes = await sql.query`
+            SELECT MAX(CASE WHEN PA.attributeName = 'Level' THEN PAV.attr_value END) as level
+            FROM People P
+            LEFT JOIN PersonAttributeValues PAV ON P.id = PAV.person_id
+            LEFT JOIN PersonAttributes PA ON PAV.attr_id = PA.attr_id
+            WHERE P.id = ${studentId}
+        `;
+        const studentLevel = parseInt(studentMetaRes.recordset[0].level || 1);
+        const courseLevel = parseInt(courseMeta.level || 1);
+
+        if (studentLevel < courseLevel) {
+            return res.status(403).json({ 
+                status: "fail", 
+                message: `You cannot register. Course is Level ${courseLevel}, you are Level ${studentLevel}.` 
+            });
+        }
+
+        if (courseMeta.prerequisiteId) {
+            let prereqId = courseMeta.prerequisiteId;
+
+            // GUARD: If the ID is not a number (it's "CSE343"), find the real ID
+            if (isNaN(prereqId)) {
+                const resolveId = await sql.query`SELECT id FROM Courses WHERE code = ${prereqId}`;
+                if (resolveId.recordset.length > 0) {
+                    prereqId = resolveId.recordset[0].id;
+                } else {
+                    // If we can't find the ID for 'CSE343', we can't check it. 
+                    // Return error or skip.
+                    return res.status(500).json({ status: "fail", message: `System Error: Invalid Prerequisite Data '${prereqId}'` });
+                }
+            }
+
+            // Check if student has PASSED or IS ENROLLED in the prerequisite
+            const prereqCheck = await sql.query`
+                SELECT EnrollmentID FROM Enrollments 
+                WHERE studentId = ${studentId} 
+                AND courseId = ${prereqId}
+                AND status = 'passed' 
+            `;
+
+            if (prereqCheck.recordset.length === 0) {
+                // Get prereq code for error message
+                const pNameRes = await sql.query`SELECT code FROM Courses WHERE id = ${prereqId}`;
+                const pCode = pNameRes.recordset[0] ? pNameRes.recordset[0].code : 'Required Course';
+                
+                return res.status(403).json({ 
+                    status: "fail", 
+                    message: `You cannot register. Missing Prerequisite: ${pCode}` 
+                });
+            }
+        }
+
+        // 4. Proceed
         await sql.query`INSERT INTO Enrollments (studentId, courseId, status) VALUES (${studentId}, ${courseId}, 'pending')`;
         res.status(200).json({ status: "success", message: "Request sent successfully" });
-    } catch (error) { res.status(400).json({ status: "fail", message: error.message }); }
+
+    } catch (error) {
+        res.status(400).json({ status: "fail", message: error.message });
+    }
 };
 
 const manageEnrollment = async (req, res) => {
