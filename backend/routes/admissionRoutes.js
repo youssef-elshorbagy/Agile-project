@@ -9,7 +9,8 @@ const admissionUploads = upload.fields([
     { name: 'birthCertificate', maxCount: 1 },
     { name: 'highSchoolCertificate', maxCount: 1 }
 ]);
-
+router.get('/', admissionController.getPendingAdmissions);
+router.post('/decide', admissionController.decideAdmission);
 // POST http://localhost:3000/api/admissions/apply
 router.post('/apply', admissionUploads, admissionController.submitAdmission);
 
