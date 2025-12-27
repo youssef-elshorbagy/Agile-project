@@ -1,6 +1,6 @@
 # UMS - University Management System
 
-A full-stack web application for managing university courses, students, and teachers.
+A full-stack web application for managing university courses, students, admissions, and teachers using the EAV (Entity-Attribute-Value) model for flexible data management.
 
 
 ______________________________________________________________________________________
@@ -9,30 +9,19 @@ ________________________________________________________________________________
 
 # 1. Prerequisites
 Make sure you have these installed on your computer:
-* [Node.js](https://nodejs.org/)
-* [MongoDB Compass](https://www.mongodb.com/products/tools/compass) (to view your database)
+* Node.js (for the backend server)
+* Microsoft SQL Server (Express or Developer edition)
+* SQL Server Management Studio (SSMS) (to manage the database)
 
 # 2. Setup the Backend
-1.  Open your terminal/command prompt.
-2.  Navigate to the backend folder:
+1- Open SQL Server Management Studio (SSMS) and connect to your local server instance.
 
-    cd backend
-    
-3.  Install the dependencies:
-    
-    npm install
-    
-4.  Create the Database Configuration:
-    Create a file named `.env` inside the backend folder and add this:
+2- Open the provided database script file (e.g., db_script.sql) in SSMS.
 
-    MONGO_URI=mongodb+srv://Agile-project:3tGaNPBxzntR6te4@cluster0.c7z4p.mongodb.net/
-    db_Name=productivity_app
-    JWT_SECRET=ed492b4d07d4fddce26a131f9566394bfa31acda8d35b49963cc7c4a1fb4dad22899e39739c1ab54b5695277fdb133943a0e9ef328048f7759795c0fb29524dd
-    JWT_EXPIRES_IN=7d
-    PORT=3000
-    NODE_ENV=development
+3- Run the script (Press F5 or click Execute) to create the UMS_DB database and all required tables.
 
-    
+4- Ensure the database UMS_DB is visible in the Object Explorer.
+ 
 5.  Start the Server:
 
     npm start
@@ -48,9 +37,10 @@ ________________________________________________________________________________
 # Login Credentials
 
 Default Admin:
-Email: `admin@edu.eg`
+Email: `admin@eng.asu.edu.eg`
 Password: `admin123`
 
 # Note: When creating new users as an Admin, remember:
-Student Emails must end with: `@eng.asu.edu.eg`
-Passwords must start with a Capital Letter and be at least 8 characters.
+* Student Emails must end with: `@eng.asu.edu.eg`
+* Passwords must start with a Capital Letter and be at least 8 characters.
+* New students do not log in. Click "Apply for Admission" on the login page to submit documents.
