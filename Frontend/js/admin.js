@@ -75,7 +75,6 @@ async function loadUsers() {
                         <td>${u.email}</td>
                         <td>
                           <span class="role-badge role-${roleClass}">${u.role}</span>
-                          ${u.isAdvisor ? '<span class="role-badge role-advisor">Advisor</span>' : ''}
                         </td>
                         <td>${u.fullName}</td>
                     </tr>`;

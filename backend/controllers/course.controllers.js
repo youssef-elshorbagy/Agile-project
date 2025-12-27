@@ -358,12 +358,17 @@ const gradeSubmission = async (req, res) => {
     } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
 };
 
+
 const getStudentAssignments = async (req, res) => {
     try {
         const studentId = req.user.id;
         const result = await sql.query`
             SELECT 
-                U.id, U.title as Title, C.name as CourseName, C.code as CourseCode,
+                U.id, 
+                C.id as CourseId, 
+                U.title as Title, 
+                C.name as CourseName, 
+                C.code as CourseCode,
                 MAX(CASE WHEN UA.attributeName = 'Deadline' THEN UAV.attr_value END) as Deadline,
                 MAX(Sub.Grade) as Grade, 
                 MAX(Sub.SubmittedAt) as SubmittedAt
@@ -382,12 +387,13 @@ const getStudentAssignments = async (req, res) => {
                 WHERE U2.uploadType = 'student_submission' AND U2.uploaderId = ${studentId} AND UA_Ref.attributeName = 'ReferenceId'
             ) Sub ON CAST(U.id AS NVARCHAR) = Sub.assId
             WHERE E.studentId = ${studentId} AND E.status = 'enrolled' AND U.uploadType = 'assignment_item' AND UA.attributeName = 'Deadline'
-            GROUP BY U.id, U.title, C.name, C.code
+            GROUP BY U.id, C.id, U.title, C.name, C.code 
             ORDER BY Deadline ASC
         `;
         res.status(200).json({ status: "success", data: result.recordset });
     } catch (error) { res.status(500).json({ status: "fail", message: error.message }); }
 };
+
 
 const getMyCourseSubmissions = async (req, res) => {
     try {

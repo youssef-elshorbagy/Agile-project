@@ -340,6 +340,21 @@ body {
     color: white;
 }
 
+.role-newcomer {
+    background-color: #17a2b8; /* Teal color */
+    color: white;
+}
+
+.role-parent {
+    background-color: #ffc107; 
+    color: #212529; 
+}
+
+.role-advisor {
+    background-color: #6c757d; /* Grey */
+    color: white;
+}
+
 /* Student Dashboard Styles */
 .info-card {
     background: white;

@@ -401,16 +401,8 @@ async function loadDashboardAssignments() {
                 `;
                 
                 // Clicking the card takes you to the course details
-                card.onclick = () => window.location.href = `course-details.html?id=${ass.id}`; // Note: ass.id here is actually Assignment ID from backend query? Check controller. 
-                // In controller: U.id is selected. BUT we need Course ID to link properly.
-                // The query selects U.id. We need courseId too.
-                // Let's assume the link goes to course page. To go to specific assignment, we need course ID.
-                // Re-check Controller: U.id is Assignment ID. C.id is Course ID (not selected in previous query).
-                // Let's rely on user navigating to course.
-                
-                // NOTE: To fix navigation, ensure backend selects CourseID. 
-                // Currently it selects C.code and C.name.
-                // For now, let's just show the info.
+                card.onclick = () => window.location.href = `course-details.html?id=${ass.CourseId}`; // Note: ass.id here is actually Assignment ID from backend query? Check controller. 
+
                 
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center;">
