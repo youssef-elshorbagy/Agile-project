@@ -28,24 +28,105 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Navigation
 function switchView(viewName, element) {
-    document.getElementById('view-users').style.display = 'none';
-    document.getElementById('view-courses').style.display = 'none';
-    document.getElementById('view-enrollments').style.display = 'none';
-    document.getElementById('view-staff').style.display = 'none';
+    ['view-users', 'view-courses', 'view-enrollments', 'view-admissions'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.style.display = 'none';
+    });
 
+    // Show selected
     document.getElementById(`view-${viewName}`).style.display = 'block';
 
     const links = document.querySelectorAll('.nav-link');
     links.forEach(link => link.classList.remove('active'));
-    element.classList.add('active');
+    if(element) element.classList.add('active');
 
+    // Load Data
     if (viewName === 'courses') {
         loadInstructors();
         loadCourses();
-    } else if (viewName === 'staff') {
-        loadStaffDirectory();
+    } else if (viewName === 'admissions') {
+        loadAdmissions();
+    }
+}
+
+
+async function loadAdmissions() {
+    const tbody = document.getElementById('admissionsTableBody');
+    tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+
+    try {
+        const response = await fetch(`${API_URL}/admissions`, {
+            headers: { 'Authorization': `Bearer ${session.token}` }
+        });
+        const result = await response.json();
+
+        if (response.ok) {
+            const applicants = result.data.applicants || [];
+            
+            if (applicants.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No pending applications.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = '';
+            applicants.forEach(app => {
+                // Prepare file links
+                let docLinks = 'No files';
+                if (app.files && app.files.length > 0) {
+                    docLinks = app.files.map(f => 
+                        `<a href="${API_URL.replace('/api','')}/uploads/${f.fileName}" target="_blank" style="color:#0984e3; text-decoration:underline; margin-right:10px;">
+                            ${f.title}
+                         </a>`
+                    ).join('');
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${app.fullName}</strong></td>
+                        <td>${app.nationalId || 'N/A'}</td>
+                        <td>${docLinks}</td>
+                        <td>${new Date(app.createdAt).toLocaleDateString()}</td>
+                        <td>
+                            <button onclick="decideAdmission('${app.id}', 'accept')" style="background:#00b894; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Accept</button>
+                            <button onclick="decideAdmission('${app.id}', 'reject')" style="background:#d63031; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; margin-left:5px;">Decline</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (err) { 
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="5" style="color:red;">Error loading data.</td></tr>';
+    }
+}
+
+
+async function decideAdmission(userId, action) {
+    if (!confirm(`Are you sure you want to ${action} this applicant?`)) return;
+
+    try {
+        const response = await fetch(`${API_URL}/admissions/decide`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.token}` 
+            },
+            body: JSON.stringify({ userId, action })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alert(result.message);
+            loadAdmissions(); 
+            loadUsers(); 
+        } else {
+            alert("Error: " + result.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error.");
     }
 }
 

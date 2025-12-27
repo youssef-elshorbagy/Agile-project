@@ -19,7 +19,7 @@
         <div class="navbar">
             <a class="nav-link active" onclick="switchView('users', this)">Manage Users</a>
             <a class="nav-link" onclick="switchView('courses', this)">Register Courses</a>
-            <a href="#" class="nav-link" onclick="loadParentStudentManagement()">Parent-Student Links</a>
+          <a class="nav-link" onclick="switchView('admissions', this)">Admissions</a> <!-- new update - Admissions -->
         </div>
 
         <div class="dashboard-content">
@@ -185,9 +185,25 @@
                 </div>
             </div>
 
-            <div id="view-staff" style="display: none;">
-                <div class="content-header">
-               
+            <div id="view-admissions" style="display: none;">
+                <div class="users-section">
+                    <h2>New Student Applications</h2>
+                    <div class="users-table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>National ID</th>
+                                    <th>Documents</th>
+                                    <th>Submitted At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admissionsTableBody">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
         </div>
