@@ -26,7 +26,7 @@ Make sure you have these installed on your computer:
 
     npm start
     
-    You should see: "Server running on port 3000" and "MongoDB Connected".
+    You should see: "Server running on port 3000".
 
 # 3. Run the Frontend
 1.  Go to your main folder.
